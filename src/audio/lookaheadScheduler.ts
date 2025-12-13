@@ -1,15 +1,25 @@
 export type TickHandler = (step: number, time: number) => void;
 
 export class LookaheadScheduler {
-  private intervalId: number | null = null;
-  private nextStepTime = 0;
-  private currentStep = 0;
-  private secondsPerStep = 0;
+  private intervalId: number | null;
+  private nextStepTime: number;
+  private currentStep: number;
+  private secondsPerStep: number;
+  private readonly scheduleAheadTime: number;
+  private readonly lookaheadMs: number;
+  private context: AudioContext;
+  private stepsPerBar: number;
 
-  private readonly scheduleAheadTime = 0.18; // seconds
-  private readonly lookaheadMs = 25; // how often we check the queue
-
-  constructor(private context: AudioContext, private stepsPerBar: number) {}
+  constructor(context: AudioContext, stepsPerBar: number) {
+    this.context = context;
+    this.stepsPerBar = stepsPerBar;
+    this.intervalId = null;
+    this.nextStepTime = 0;
+    this.currentStep = 0;
+    this.secondsPerStep = 0;
+    this.scheduleAheadTime = 0.18; // seconds
+    this.lookaheadMs = 25; // how often we check the queue
+  }
 
   start(bpm: number, onTick: TickHandler) {
     this.stop();
