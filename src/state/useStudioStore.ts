@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import audioEngine from '../audio/audioEngine';
 import { STEPS_PER_BAR } from '../types';
 import type { Track, TrackId } from '../types';
@@ -55,53 +56,64 @@ const defaultTracks: Track[] = [
   },
 ];
 
-export const useStudioStore = create<StudioState & StudioActions>((set, get) => ({
-  tempo: 92,
-  isPlaying: false,
-  currentStep: 0,
-  tracks: defaultTracks,
-  audioReady: false,
+export const useStudioStore = create<StudioState & StudioActions>()(
+  persist(
+    (set, get) => ({
+      tempo: 92,
+      isPlaying: false,
+      currentStep: 0,
+      tracks: defaultTracks,
+      audioReady: false,
 
-  toggleStep: (trackId, step) =>
-    set((state) => ({
-      tracks: state.tracks.map((track) =>
-        track.id === trackId
-          ? {
-              ...track,
-              pattern: track.pattern.map((isOn, idx) => (idx === step ? !isOn : isOn)),
-            }
-          : track
-      ),
-    })),
+      toggleStep: (trackId, step) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) =>
+            track.id === trackId
+              ? {
+                  ...track,
+                  pattern: track.pattern.map((isOn, idx) => (idx === step ? !isOn : isOn)),
+                }
+              : track
+          ),
+        })),
 
-  toggleMute: (trackId) =>
-    set((state) => ({
-      tracks: state.tracks.map((track) =>
-        track.id === trackId ? { ...track, muted: !track.muted } : track
-      ),
-    })),
+      toggleMute: (trackId) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) =>
+            track.id === trackId ? { ...track, muted: !track.muted } : track
+          ),
+        })),
 
-  setTempo: (tempo) => {
-    const clamped = clampTempo(tempo);
-    set({ tempo: clamped });
-    audioEngine.setTempo(clamped);
-  },
+      setTempo: (tempo) => {
+        const clamped = clampTempo(tempo);
+        set({ tempo: clamped });
+        audioEngine.setTempo(clamped);
+      },
 
-  start: async () => {
-    const { tempo } = get();
-    await audioEngine.init();
+      start: async () => {
+        const { tempo } = get();
+        await audioEngine.init();
 
-    audioEngine.start({
-      tempo,
-      getTracks: () => get().tracks,
-      onStep: (step) => set({ currentStep: step }),
-    });
+        audioEngine.start({
+          tempo,
+          getTracks: () => get().tracks,
+          onStep: (step) => set({ currentStep: step }),
+        });
 
-    set({ isPlaying: true, audioReady: true });
-  },
+        set({ isPlaying: true, audioReady: true });
+      },
 
-  stop: () => {
-    audioEngine.stop();
-    set({ isPlaying: false, currentStep: 0 });
-  },
-}));
+      stop: () => {
+        audioEngine.stop();
+        set({ isPlaying: false, currentStep: 0 });
+      },
+    }),
+    {
+      name: 'beats-studio-storage',
+      partialize: (state) => ({
+        tempo: state.tempo,
+        tracks: state.tracks,
+      }),
+    }
+  )
+);
