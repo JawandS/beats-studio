@@ -1,5 +1,5 @@
 .app-shell {
-  max-width: 1200px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 48px 28px 80px;
 }
@@ -42,7 +42,7 @@
 
 .hero-left h1 {
   margin: 6px 0 4px;
-  font-size: 42px;
+  font-size: 40px;
   letter-spacing: -0.02em;
 }
 
@@ -317,6 +317,58 @@
 .tempo-slider {
   width: 100%;
   accent-color: #22d3ee;
+}
+
+/* Landscape optimizations (e.g., 3120x1440 phones) */
+@media (orientation: landscape) {
+  .app-shell {
+    padding: 32px 22px 56px;
+  }
+
+  .hero {
+    grid-template-columns: 1.6fr 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .hero-left h1 {
+    font-size: 34px;
+  }
+
+  .lede {
+    font-size: 15px;
+  }
+
+  .transport {
+    flex-wrap: nowrap;
+  }
+
+  .transport-left {
+    flex: 1;
+    gap: 8px;
+  }
+
+  .tempo-field {
+    min-width: 0;
+    width: 320px;
+  }
+
+  .tempo-row {
+    flex-wrap: wrap;
+  }
+
+  .sequencer {
+    grid-template-columns: 280px 1fr;
+    padding: 12px;
+  }
+
+  .stage-wrapper {
+    min-height: 360px;
+  }
+
+  .track-label {
+    min-height: 56px;
+  }
 }
 
 .volume-slider {
