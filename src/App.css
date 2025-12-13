@@ -142,13 +142,21 @@
 }
 
 .tempo-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   background: #0c192c;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 8px 10px;
+  padding: 10px;
   border-radius: 12px;
+  min-width: 240px;
+}
+
+.tempo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .tempo-field label {
@@ -156,23 +164,56 @@
   color: #cbd5e1;
 }
 
-.tempo-field input {
-  width: 72px;
+.tempo-unit {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.tempo-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0c1629;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.tempo-stepper input {
+  width: 68px;
   border: none;
   outline: none;
   background: transparent;
   color: #f8fafc;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 16px;
+  text-align: center;
 }
 
-.tempo-field input::-webkit-inner-spin-button {
+.tempo-stepper input::-webkit-inner-spin-button {
   appearance: none;
 }
 
-.tempo-unit {
-  font-size: 12px;
-  color: #94a3b8;
+.tempo-stepper button {
+  border: none;
+  background: #0f1d31;
+  color: #e2e8f0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.tempo-stepper button:active {
+  background: #13243b;
+}
+
+.tempo-slider {
+  width: 100%;
+  accent-color: #22d3ee;
 }
 
 .sequencer {

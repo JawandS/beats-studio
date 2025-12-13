@@ -2,6 +2,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStudioStore } from '../state/useStudioStore';
 import '../App.css';
 
+const MIN_BPM = 60;
+const MAX_BPM = 180;
+
 export function TransportBar() {
   const { tempo, setTempo, isPlaying, start, stop, audioReady } = useStudioStore(
     useShallow((state) => ({
@@ -34,17 +37,44 @@ export function TransportBar() {
       </div>
 
       <div className="tempo-field">
-        <label htmlFor="tempo">Tempo</label>
-        <input
-          id="tempo"
-          type="number"
-          min={60}
-          max={180}
-          step={1}
-          value={tempo}
-          onChange={(e) => setTempo(Number(e.target.value))}
-        />
-        <span className="tempo-unit">BPM</span>
+        <div className="tempo-row">
+          <label htmlFor="tempo">Tempo</label>
+          <span className="tempo-unit">BPM</span>
+        </div>
+        <div className="tempo-row">
+          <div className="tempo-stepper">
+            <button aria-label="Decrease tempo" onClick={() => setTempo(tempo - 1)}>
+              −
+            </button>
+            <input
+              id="tempo"
+              type="number"
+              min={MIN_BPM}
+              max={MAX_BPM}
+              step={1}
+              value={tempo}
+              inputMode="numeric"
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (Number.isFinite(next)) {
+                  setTempo(next);
+                }
+              }}
+            />
+            <button aria-label="Increase tempo" onClick={() => setTempo(tempo + 1)}>
+              +
+            </button>
+          </div>
+          <input
+            className="tempo-slider"
+            type="range"
+            min={MIN_BPM}
+            max={MAX_BPM}
+            step={1}
+            value={tempo}
+            onChange={(e) => setTempo(Number(e.target.value))}
+          />
+        </div>
       </div>
     </div>
   );
