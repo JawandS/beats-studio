@@ -306,33 +306,26 @@ class AudioEngine {
   private triggerVocalChop(time: number, velocity: number) {
     if (!this.context || !this.master) return;
 
-    // Vocal chop: synth lead with vibrato
+    // Pluck synth: short, percussive melodic sound
     const osc = this.context.createOscillator();
-    osc.type = 'square';
+    osc.type = 'triangle';
     osc.frequency.value = 440; // A4
 
-    // Add vibrato with LFO
-    const lfo = this.context.createOscillator();
-    lfo.frequency.value = 5; // 5Hz vibrato
-    const lfoGain = this.context.createGain();
-    lfoGain.gain.value = 10; // Vibrato depth
-    lfo.connect(lfoGain).connect(osc.frequency);
-
+    // Fast attack, quick decay envelope
     const gain = this.context.createGain();
-    gain.gain.setValueAtTime(0.2 * velocity, time);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+    gain.gain.setValueAtTime(0.4 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.15);
 
-    // Add filter for vocal-like quality
+    // Filter envelope for pluck character
     const filter = this.context.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1500;
-    filter.Q.value = 5;
+    filter.type = 'lowpass';
+    filter.Q.value = 8;
+    filter.frequency.setValueAtTime(3000, time);
+    filter.frequency.exponentialRampToValueAtTime(400, time + 0.12);
 
     osc.connect(filter).connect(gain).connect(this.master);
     osc.start(time);
-    lfo.start(time);
-    osc.stop(time + 0.3);
-    lfo.stop(time + 0.3);
+    osc.stop(time + 0.2);
   }
 
   private triggerRiser(time: number, velocity: number) {

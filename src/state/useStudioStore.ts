@@ -92,7 +92,7 @@ const defaultTracks: Track[] = [
   },
   {
     id: 'vocal',
-    name: 'Chop',
+    name: 'Synth',
     color: '#14b8a6',
     volume: 0.65,
     pattern: patternFrom([1, 5, 9, 13]),
