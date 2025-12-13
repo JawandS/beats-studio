@@ -10,6 +10,13 @@
   }
 }
 
+/* Mobile landscape: reduce vertical padding to prevent overflow */
+@media (max-width: 900px) and (max-height: 500px) {
+  .app-shell {
+    padding: 16px 18px 32px;
+  }
+}
+
 .hero {
   display: grid;
   grid-template-columns: 3fr 2fr;
@@ -24,10 +31,27 @@
   }
 }
 
+/* Mobile landscape: reduce margin and ensure single column */
+@media (max-width: 900px) and (max-height: 500px) {
+  .hero {
+    grid-template-columns: 1fr;
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+}
+
 .hero-left h1 {
   margin: 6px 0 4px;
   font-size: 42px;
   letter-spacing: -0.02em;
+}
+
+/* Mobile landscape: reduce heading size */
+@media (max-width: 900px) and (max-height: 500px) {
+  .hero-left h1 {
+    font-size: 28px;
+    margin: 4px 0 2px;
+  }
 }
 
 .eyebrow {
@@ -35,6 +59,13 @@
   letter-spacing: 0.14em;
   color: #67e8f9;
   font-size: 12px;
+}
+
+/* Mobile landscape: hide eyebrow to save space */
+@media (max-width: 900px) and (max-height: 500px) {
+  .eyebrow {
+    display: none;
+  }
 }
 
 .lede {
@@ -78,6 +109,13 @@
   font-size: 14px;
 }
 
+/* Mobile landscape: hide or reduce hint text */
+@media (max-width: 900px) and (max-height: 500px) {
+  .hint {
+    font-size: 12px;
+  }
+}
+
 .transport {
   display: flex;
   align-items: center;
@@ -91,10 +129,26 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
+/* Mobile landscape: compact transport padding */
+@media (max-width: 900px) and (max-height: 500px) {
+  .transport {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+}
+
 .transport-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Mobile landscape: reduce gap */
+@media (max-width: 900px) and (max-height: 500px) {
+  .transport-left {
+    gap: 6px;
+  }
 }
 
 .pill-button {
@@ -105,6 +159,16 @@
   color: #0a1322;
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;
+  min-height: 44px; /* Ensure touch target minimum */
+  min-width: 80px;
+}
+
+/* Mobile landscape: slightly reduce padding while maintaining touch target */
+@media (max-width: 900px) and (max-height: 500px) {
+  .pill-button {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
 }
 
 .pill-button.primary {
@@ -141,6 +205,13 @@
   font-size: 14px;
 }
 
+/* Mobile landscape: hide status label to save space */
+@media (max-width: 900px) and (max-height: 500px) {
+  .status-label {
+    display: none;
+  }
+}
+
 .tempo-field {
   display: flex;
   flex-direction: column;
@@ -150,6 +221,15 @@
   padding: 10px;
   border-radius: 12px;
   min-width: 240px;
+}
+
+/* Mobile landscape: compact tempo field */
+@media (max-width: 900px) and (max-height: 500px) {
+  .tempo-field {
+    padding: 6px 8px;
+    gap: 6px;
+    min-width: 200px;
+  }
 }
 
 .tempo-row {
@@ -205,15 +285,38 @@
   font-size: 18px;
   display: grid;
   place-items: center;
+  min-width: 44px; /* Ensure touch target minimum */
+  min-height: 44px;
 }
 
 .tempo-stepper button:active {
   background: #13243b;
 }
 
+/* Desktop: use smaller buttons */
+@media (min-width: 901px) {
+  .tempo-stepper button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
 .tempo-slider {
   width: 100%;
   accent-color: #22d3ee;
+}
+
+.volume-slider {
+  width: 80px;
+  accent-color: #22d3ee;
+  min-height: 24px; /* Ensure touch target for slider */
+}
+
+/* Mobile landscape: reduce volume slider width */
+@media (max-width: 900px) and (max-height: 500px) {
+  .volume-slider {
+    width: 60px;
+  }
 }
 
 .sequencer {
@@ -234,9 +337,26 @@
   }
 }
 
+/* Mobile landscape: reduce padding and margin */
+@media (max-width: 900px) and (max-height: 500px) {
+  .sequencer {
+    margin-top: 12px;
+    padding: 10px;
+    gap: 10px;
+    grid-template-columns: 180px 1fr; /* Keep labels visible but narrower */
+  }
+}
+
 .track-list {
   display: grid;
   gap: 8px;
+}
+
+/* Mobile landscape: reduce gap */
+@media (max-width: 900px) and (max-height: 500px) {
+  .track-list {
+    gap: 6px;
+  }
 }
 
 .track-label {
@@ -249,6 +369,22 @@
   padding: 10px 12px;
   border-radius: 12px;
   min-height: 60px;
+}
+
+/* Mobile landscape: compact track labels */
+@media (max-width: 900px) and (max-height: 500px) {
+  .track-label {
+    padding: 6px 8px;
+    gap: 6px;
+    min-height: 52px;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .track-label > div:last-child {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
 }
 
 .track-chip {
@@ -281,6 +417,8 @@
   padding: 6px 10px;
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease;
+  min-height: 44px; /* Ensure touch target minimum */
+  min-width: 44px;
 }
 
 .mute-button:hover {
@@ -288,13 +426,135 @@
   transform: translateY(-1px);
 }
 
+/* Desktop: use smaller buttons */
+@media (min-width: 901px) {
+  .mute-button {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
 .stage-wrapper {
   width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
   background: #0c1629;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  padding: 8px;
+  padding: 8px 8px 20px 8px; /* Extra bottom padding for easier scrolling */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.3) rgba(255, 255, 255, 0.05);
+  scroll-behavior: smooth;
+  position: relative;
+  cursor: grab;
+  touch-action: pan-x; /* Only allow horizontal panning on touch devices */
+  overscroll-behavior-x: contain; /* Prevent scroll chaining */
+}
+
+.stage-wrapper:active {
+  cursor: grabbing;
+}
+
+/* Add scroll hint gradient on right edge */
+.stage-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, transparent, rgba(34, 211, 238, 0.1));
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Webkit scrollbar styling */
+.stage-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.stage-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.stage-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.3);
+  border-radius: 4px;
+}
+
+.stage-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.5);
+}
+
+/* Mobile: larger scrollbar and stronger scroll hint */
+@media (max-width: 900px) {
+  .stage-wrapper::-webkit-scrollbar {
+    height: 12px;
+  }
+
+  .stage-wrapper {
+    scrollbar-width: auto;
+  }
+
+  .stage-wrapper::after {
+    width: 60px;
+    background: linear-gradient(to right, transparent, rgba(34, 211, 238, 0.15));
+    opacity: 0.8;
+  }
+}
+
+/* Mobile landscape: reduce padding but keep bottom spacing */
+@media (max-width: 900px) and (max-height: 500px) {
+  .stage-wrapper {
+    padding: 6px 6px 16px 6px;
+  }
+}
+
+/* Scroll hint indicator for mobile */
+.scroll-hint {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+  animation: pulse-hint 2s ease-in-out infinite;
+}
+
+@media (max-width: 900px) {
+  .scroll-hint {
+    display: flex;
+  }
+}
+
+.scroll-hint-icon {
+  color: rgba(34, 211, 238, 0.8);
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.scroll-hint-text {
+  font-size: 10px;
+  color: rgba(34, 211, 238, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@keyframes pulse-hint {
+  0%, 100% {
+    opacity: 0.6;
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) translateX(-4px);
+  }
 }
 
 .callout {
@@ -309,6 +569,15 @@
   border-radius: 14px;
   color: #cbd5e1;
   flex-wrap: wrap;
+}
+
+/* Mobile landscape: reduce callout margin */
+@media (max-width: 900px) and (max-height: 500px) {
+  .callout {
+    margin-top: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
 }
 
 .callout-title {

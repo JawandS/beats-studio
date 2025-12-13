@@ -1,11 +1,14 @@
 import { Layer, Rect, Stage } from 'react-konva';
 import { useShallow } from 'zustand/react/shallow';
+import { useState, useEffect } from 'react';
 import { useStudioStore } from '../state/useStudioStore';
 import { STEPS_PER_BAR } from '../types';
 import type { TrackId } from '../types';
 
-const CELL_SIZE = 52;
-const ROW_HEIGHT = 68;
+const CELL_SIZE_DESKTOP = 52;
+const CELL_SIZE_MOBILE_LANDSCAPE = 36;
+const ROW_HEIGHT_DESKTOP = 68;
+const ROW_HEIGHT_MOBILE_LANDSCAPE = 52;
 const CELL_INSET = 8;
 
 export function StepGrid() {
@@ -19,6 +22,35 @@ export function StepGrid() {
       isPlaying: state.isPlaying,
     }))
   );
+
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(true);
+
+  useEffect(() => {
+    const checkViewport = () => {
+      const isLandscape = window.innerWidth <= 900 && window.innerHeight <= 500;
+      setIsMobileLandscape(isLandscape);
+    };
+
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
+
+  useEffect(() => {
+    const wrapper = document.querySelector('.stage-wrapper');
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      setShowScrollHint(false);
+    };
+
+    wrapper.addEventListener('scroll', handleScroll, { once: true });
+    return () => wrapper.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const CELL_SIZE = isMobileLandscape ? CELL_SIZE_MOBILE_LANDSCAPE : CELL_SIZE_DESKTOP;
+  const ROW_HEIGHT = isMobileLandscape ? ROW_HEIGHT_MOBILE_LANDSCAPE : ROW_HEIGHT_DESKTOP;
 
   const steps = tracks[0]?.pattern.length ?? STEPS_PER_BAR;
   const stageWidth = steps * CELL_SIZE;
@@ -41,12 +73,12 @@ export function StepGrid() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <input
                 type="range"
+                className="volume-slider"
                 min="0"
                 max="1"
                 step="0.01"
                 value={track.volume ?? 1}
                 onChange={(e) => setVolume(track.id, parseFloat(e.target.value))}
-                style={{ width: '80px' }}
                 title={`Volume: ${Math.round((track.volume ?? 1) * 100)}%`}
               />
               <button
@@ -74,7 +106,13 @@ export function StepGrid() {
         ))}
       </div>
 
-      <div className="stage-wrapper">
+      <div className="stage-wrapper" role="region" aria-label="Step sequencer grid - swipe to scroll">
+        {showScrollHint && (
+          <div className="scroll-hint">
+            <div className="scroll-hint-icon">‹</div>
+            <div className="scroll-hint-text">Swipe</div>
+          </div>
+        )}
         <Stage width={stageWidth} height={stageHeight}>
           <Layer>
             {tracks.map((_, rowIndex) => (
