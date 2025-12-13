@@ -18,6 +18,7 @@ type StudioActions = {
   start: () => Promise<void>;
   stop: () => void;
   toggleMute: (trackId: TrackId) => void;
+  setVolume: (trackId: TrackId, volume: number) => void;
 };
 
 const clampTempo = (tempo: number) => Math.min(180, Math.max(60, Math.round(tempo)));
@@ -81,6 +82,13 @@ export const useStudioStore = create<StudioState & StudioActions>()(
         set((state) => ({
           tracks: state.tracks.map((track) =>
             track.id === trackId ? { ...track, muted: !track.muted } : track
+          ),
+        })),
+
+      setVolume: (trackId, volume) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) =>
+            track.id === trackId ? { ...track, volume } : track
           ),
         })),
 
