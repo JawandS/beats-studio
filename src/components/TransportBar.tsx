@@ -26,6 +26,13 @@ export function TransportBar() {
     await start();
   };
 
+  const handleReset = () => {
+    if (confirm('Reset to default tracks? This will clear all your patterns and reload the page.')) {
+      localStorage.removeItem('beats-studio-storage');
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="transport">
       <div className="tempo-field">
@@ -71,6 +78,15 @@ export function TransportBar() {
         </button>
         <div className={`status-dot ${audioReady ? 'ready' : 'locked'}`} />
       </div>
+
+      <button
+        className="pill-button secondary"
+        onClick={handleReset}
+        title="Reset"
+        style={{ marginLeft: 'auto' }}
+      >
+        Reset
+      </button>
     </div>
   );
 }

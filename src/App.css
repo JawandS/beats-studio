@@ -342,6 +342,7 @@
   grid-template-columns: 260px 1fr;
   gap: 12px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+  align-items: start; /* Ensure both columns start at the same point */
 }
 
 @media (max-width: 900px) {
@@ -362,13 +363,13 @@
 
 .track-list {
   display: grid;
-  gap: 8px;
+  gap: 0; /* No gap - rows should be continuous like in the grid */
 }
 
-/* Mobile landscape: reduce gap */
+/* Mobile landscape: no gap needed */
 @media (max-width: 900px) and (max-height: 500px) {
   .track-list {
-    gap: 6px;
+    gap: 0;
   }
 }
 
@@ -379,17 +380,30 @@
   gap: 10px;
   background: #0c192c;
   border: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: none; /* Remove bottom border except for last */
   padding: 10px 12px;
-  border-radius: 12px;
-  min-height: 60px;
+  border-radius: 0;
+  height: 68px; /* Match ROW_HEIGHT_DESKTOP */
+  box-sizing: border-box;
+}
+
+.track-label:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.track-label:last-child {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 /* Mobile landscape: compact track labels */
 @media (max-width: 900px) and (max-height: 500px) {
   .track-label {
-    padding: 6px 8px;
-    gap: 6px;
-    min-height: 52px;
+    padding: 4px 6px;
+    gap: 4px;
+    height: 44px; /* Match ROW_HEIGHT_MOBILE_LANDSCAPE */
     grid-template-columns: auto 1fr;
     grid-template-rows: auto auto;
   }
@@ -401,10 +415,19 @@
 }
 
 .track-chip {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
   display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Mobile landscape: smaller chip */
+@media (max-width: 900px) and (max-height: 500px) {
+  .track-chip {
+    width: 12px;
+    height: 12px;
+  }
 }
 
 .track-meta {
@@ -415,11 +438,25 @@
 
 .track-name {
   font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
 }
 
 .track-sub {
-  font-size: 12px;
+  font-size: 11px;
   color: #94a3b8;
+  line-height: 1.2;
+}
+
+/* Mobile landscape: smaller text */
+@media (max-width: 900px) and (max-height: 500px) {
+  .track-name {
+    font-size: 12px;
+  }
+
+  .track-sub {
+    font-size: 10px;
+  }
 }
 
 .mute-button {
@@ -454,7 +491,7 @@
   background: #0c1629;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  padding: 8px 8px 20px 8px; /* Extra bottom padding for easier scrolling */
+  padding: 0 8px 20px 8px; /* No top padding, extra bottom padding for scrolling */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   scrollbar-width: thin;
   scrollbar-color: rgba(34, 211, 238, 0.3) rgba(255, 255, 255, 0.05);
@@ -521,7 +558,7 @@
 /* Mobile landscape: reduce padding but keep bottom spacing */
 @media (max-width: 900px) and (max-height: 500px) {
   .stage-wrapper {
-    padding: 6px 6px 16px 6px;
+    padding: 0 6px 16px 6px;
   }
 }
 

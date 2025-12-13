@@ -8,7 +8,7 @@ import type { TrackId } from '../types';
 const CELL_SIZE_DESKTOP = 52;
 const CELL_SIZE_MOBILE_LANDSCAPE = 36;
 const ROW_HEIGHT_DESKTOP = 68;
-const ROW_HEIGHT_MOBILE_LANDSCAPE = 52;
+const ROW_HEIGHT_MOBILE_LANDSCAPE = 44;
 const CELL_INSET = 8;
 
 export function StepGrid() {

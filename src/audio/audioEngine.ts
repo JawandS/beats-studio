@@ -93,6 +93,27 @@ class AudioEngine {
       case 'hat':
         this.triggerHat(time, velocity);
         break;
+      case 'clap':
+        this.triggerClap(time, velocity);
+        break;
+      case 'percussion':
+        this.triggerPercussion(time, velocity);
+        break;
+      case 'openhat':
+        this.triggerOpenHat(time, velocity);
+        break;
+      case 'bass':
+        this.trigger808Bass(time, velocity);
+        break;
+      case 'chord':
+        this.triggerChordStab(time, velocity);
+        break;
+      case 'vocal':
+        this.triggerVocalChop(time, velocity);
+        break;
+      case 'riser':
+        this.triggerRiser(time, velocity);
+        break;
       default:
         break;
     }
@@ -170,6 +191,183 @@ class AudioEngine {
     noiseSource.connect(highpass).connect(gain).connect(this.master);
     noiseSource.start(time);
     noiseSource.stop(time + 0.15);
+  }
+
+  private triggerClap(time: number, velocity: number) {
+    if (!this.context || !this.master || !this.noiseBuffer) return;
+
+    // Create multiple short noise bursts for clap effect
+    for (let i = 0; i < 3; i++) {
+      const delay = i * 0.015;
+      const noiseSource = this.context.createBufferSource();
+      noiseSource.buffer = this.noiseBuffer;
+
+      const bandpass = this.context.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.value = 1200;
+      bandpass.Q.value = 2;
+
+      const gain = this.context.createGain();
+      const amp = 0.3 * velocity * (1 - i * 0.15);
+      gain.gain.setValueAtTime(amp, time + delay);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + delay + 0.08);
+
+      noiseSource.connect(bandpass).connect(gain).connect(this.master);
+      noiseSource.start(time + delay);
+      noiseSource.stop(time + delay + 0.1);
+    }
+  }
+
+  private triggerPercussion(time: number, velocity: number) {
+    if (!this.context || !this.master) return;
+
+    // High pitched percussion/conga sound
+    const osc = this.context.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, time);
+    osc.frequency.exponentialRampToValueAtTime(200, time + 0.08);
+
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0.3 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.12);
+
+    osc.connect(gain).connect(this.master);
+    osc.start(time);
+    osc.stop(time + 0.15);
+  }
+
+  private triggerOpenHat(time: number, velocity: number) {
+    if (!this.context || !this.master || !this.noiseBuffer) return;
+
+    const noiseSource = this.context.createBufferSource();
+    noiseSource.buffer = this.noiseBuffer;
+
+    const highpass = this.context.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 7000;
+
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0.25 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.35);
+
+    noiseSource.connect(highpass).connect(gain).connect(this.master);
+    noiseSource.start(time);
+    noiseSource.stop(time + 0.4);
+  }
+
+  private trigger808Bass(time: number, velocity: number) {
+    if (!this.context || !this.master) return;
+
+    // 808-style bass with pitch envelope
+    const osc = this.context.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0.8 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.5);
+
+    // Add some distortion for grit
+    const distortion = this.context.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i - 128) / 128;
+      curve[i] = Math.tanh(x * 1.5);
+    }
+    distortion.curve = curve;
+
+    osc.connect(distortion).connect(gain).connect(this.master);
+    osc.start(time);
+    osc.stop(time + 0.6);
+  }
+
+  private triggerChordStab(time: number, velocity: number) {
+    if (!this.context || !this.master) return;
+
+    // Chord stab: play multiple notes simultaneously (major chord)
+    const frequencies = [261.63, 329.63, 392.0]; // C, E, G (C major)
+
+    frequencies.forEach((freq) => {
+      const osc = this.context!.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+
+      const gain = this.context!.createGain();
+      gain.gain.setValueAtTime(0.25 * velocity, time);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.3);
+
+      osc.connect(gain).connect(this.master!);
+      osc.start(time);
+      osc.stop(time + 0.35);
+    });
+  }
+
+  private triggerVocalChop(time: number, velocity: number) {
+    if (!this.context || !this.master) return;
+
+    // Vocal chop: synth lead with vibrato
+    const osc = this.context.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 440; // A4
+
+    // Add vibrato with LFO
+    const lfo = this.context.createOscillator();
+    lfo.frequency.value = 5; // 5Hz vibrato
+    const lfoGain = this.context.createGain();
+    lfoGain.gain.value = 10; // Vibrato depth
+    lfo.connect(lfoGain).connect(osc.frequency);
+
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0.2 * velocity, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+
+    // Add filter for vocal-like quality
+    const filter = this.context.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1500;
+    filter.Q.value = 5;
+
+    osc.connect(filter).connect(gain).connect(this.master);
+    osc.start(time);
+    lfo.start(time);
+    osc.stop(time + 0.3);
+    lfo.stop(time + 0.3);
+  }
+
+  private triggerRiser(time: number, velocity: number) {
+    if (!this.context || !this.master || !this.noiseBuffer) return;
+
+    // Riser: pitch sweep upward with noise
+    const osc = this.context.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, time);
+    osc.frequency.exponentialRampToValueAtTime(2000, time + 1.0);
+
+    const oscGain = this.context.createGain();
+    oscGain.gain.setValueAtTime(0.15 * velocity, time);
+    oscGain.gain.linearRampToValueAtTime(0.4 * velocity, time + 1.0);
+
+    // Add noise for texture
+    const noiseSource = this.context.createBufferSource();
+    noiseSource.buffer = this.noiseBuffer;
+
+    const noiseFilter = this.context.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.setValueAtTime(500, time);
+    noiseFilter.frequency.exponentialRampToValueAtTime(8000, time + 1.0);
+
+    const noiseGain = this.context.createGain();
+    noiseGain.gain.setValueAtTime(0.1 * velocity, time);
+    noiseGain.gain.linearRampToValueAtTime(0.3 * velocity, time + 1.0);
+
+    osc.connect(oscGain).connect(this.master);
+    noiseSource.connect(noiseFilter).connect(noiseGain).connect(this.master);
+
+    osc.start(time);
+    noiseSource.start(time);
+    osc.stop(time + 1.1);
+    noiseSource.stop(time + 1.1);
   }
 
   private createNoiseBuffer() {
