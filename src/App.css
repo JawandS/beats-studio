@@ -427,7 +427,7 @@
 
 .track-label {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   background: #0c192c;
@@ -450,19 +450,49 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+@media (max-width: 720px) {
+  .track-label {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 6px;
+    padding: 8px 10px;
+    height: auto;
+    min-height: 52px;
+  }
+
+  .track-label button {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .mute-button {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
+
 /* Mobile landscape: compact track labels */
 @media (max-width: 900px) and (max-height: 500px) {
   .track-label {
     padding: 4px 6px;
     gap: 4px;
     height: 44px; /* Match ROW_HEIGHT_MOBILE_LANDSCAPE */
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: auto auto;
   }
 
-  .track-label > div:last-child {
+  .track-label button {
     grid-column: 1 / -1;
     justify-self: stretch;
+  }
+
+  .mute-button {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 4px 8px;
+    font-size: 12px;
   }
 }
 
