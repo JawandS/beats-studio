@@ -19,6 +19,8 @@ type StudioActions = {
   stop: () => void;
   toggleMute: (trackId: TrackId) => void;
   setVolume: (trackId: TrackId, volume: number) => void;
+  reset: () => void;
+  randomize: () => void;
 };
 
 const clampTempo = (tempo: number) => Math.min(180, Math.max(60, Math.round(tempo)));
@@ -163,6 +165,27 @@ export const useStudioStore = create<StudioState & StudioActions>()(
       stop: () => {
         audioEngine.stop();
         set({ isPlaying: false, currentStep: 0 });
+      },
+
+      reset: () => {
+        // Create empty patterns (all false) and mute all tracks
+        const emptyPattern = Array.from({ length: STEPS_PER_BAR }, () => false);
+        const resetTracks = defaultTracks.map((track) => ({
+          ...track,
+          pattern: emptyPattern,
+          muted: true,
+        }));
+        set({ tracks: resetTracks });
+      },
+
+      randomize: () => {
+        // Generate random patterns for each track, preserve mute state
+        set((state) => ({
+          tracks: state.tracks.map((track) => ({
+            ...track,
+            pattern: Array.from({ length: STEPS_PER_BAR }, () => Math.random() > 0.6),
+          })),
+        }));
       },
     }),
     {

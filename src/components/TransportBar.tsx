@@ -6,7 +6,7 @@ const MIN_BPM = 60;
 const MAX_BPM = 180;
 
 export function TransportBar() {
-  const { tempo, setTempo, isPlaying, start, stop, audioReady } = useStudioStore(
+  const { tempo, setTempo, isPlaying, start, stop, audioReady, reset, randomize } = useStudioStore(
     useShallow((state) => ({
       tempo: state.tempo,
       setTempo: state.setTempo,
@@ -14,6 +14,8 @@ export function TransportBar() {
       start: state.start,
       stop: state.stop,
       audioReady: state.audioReady,
+      reset: state.reset,
+      randomize: state.randomize,
     }))
   );
 
@@ -27,10 +29,16 @@ export function TransportBar() {
   };
 
   const handleReset = () => {
-    if (confirm('Reset to default tracks? This will clear all your patterns and reload the page.')) {
-      localStorage.removeItem('beats-studio-storage');
-      window.location.reload();
+    if (confirm('Reset all tracks? This will mute all instruments and clear all patterns.')) {
+      if (isPlaying) {
+        stop();
+      }
+      reset();
     }
+  };
+
+  const handleRandomize = () => {
+    randomize();
   };
 
   return (
@@ -80,10 +88,18 @@ export function TransportBar() {
       </div>
 
       <button
+        className="pill-button primary"
+        onClick={handleRandomize}
+        title="Randomize all patterns"
+        style={{ marginLeft: 'auto' }}
+      >
+        Randomize
+      </button>
+
+      <button
         className="pill-button secondary"
         onClick={handleReset}
         title="Reset"
-        style={{ marginLeft: 'auto' }}
       >
         Reset
       </button>
