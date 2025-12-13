@@ -119,14 +119,21 @@
 .transport {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   background: #0a1322;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 12px 14px;
+  padding: 12px 24px 12px 14px;
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* Allow wrapping on very small screens */
+@media (max-width: 700px) {
+  .transport {
+    flex-wrap: wrap;
+  }
 }
 
 /* Mobile landscape: compact transport padding */
@@ -141,7 +148,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  padding-right: 32px;
 }
 
 /* Mobile landscape: reduce gap */
@@ -203,6 +212,9 @@
 .status-label {
   color: #94a3b8;
   font-size: 14px;
+  white-space: nowrap;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 /* Mobile landscape: hide status label to save space */
@@ -220,7 +232,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 10px;
   border-radius: 12px;
-  min-width: 240px;
+  min-width: 220px;
+  flex-shrink: 1;
 }
 
 /* Mobile landscape: compact tempo field */

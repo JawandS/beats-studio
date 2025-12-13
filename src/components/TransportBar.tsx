@@ -28,19 +28,7 @@ export function TransportBar() {
 
   return (
     <div className="transport">
-      <div className="transport-left">
-        <button className={`pill-button ${isPlaying ? 'secondary' : 'primary'}`} onClick={handleToggle}>
-          {isPlaying ? 'Stop' : 'Play'}
-        </button>
-        <div className={`status-dot ${audioReady ? 'ready' : 'locked'}`} />
-        <span className="status-label">{audioReady ? 'Audio ready' : 'Tap play to unlock audio'}</span>
-      </div>
-
       <div className="tempo-field">
-        <div className="tempo-row">
-          <label htmlFor="tempo">Tempo</label>
-          <span className="tempo-unit">BPM</span>
-        </div>
         <div className="tempo-row">
           <div className="tempo-stepper">
             <button aria-label="Decrease tempo" onClick={() => setTempo(tempo - 1)}>
@@ -75,6 +63,13 @@ export function TransportBar() {
             onChange={(e) => setTempo(Number(e.target.value))}
           />
         </div>
+      </div>
+
+      <div className="transport-left">
+        <button className={`pill-button ${isPlaying ? 'secondary' : 'primary'}`} onClick={handleToggle}>
+          {isPlaying ? 'Stop' : 'Play'}
+        </button>
+        <div className={`status-dot ${audioReady ? 'ready' : 'locked'}`} />
       </div>
     </div>
   );
