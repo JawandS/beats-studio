@@ -15,6 +15,7 @@ type Stem = {
 
 type Status = 'idle' | 'processing' | 'ready' | 'playing' | 'error';
 type StoredEntry = { id: string; displayName: string; createdAt: number };
+type SampleEntry = { id: string; label: string; url: string };
 
 const DEFAULT_STEMS: Stem[] = [
   { id: 'drums', name: 'Drums / Perc', color: '#22d3ee', gain: 0.9, muted: false },
@@ -73,6 +74,7 @@ export function SongAnalysis() {
   const [loopCount, setLoopCount] = useState(0);
   const [entries, setEntries] = useState<StoredEntry[]>([]);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [sampleEntries, setSampleEntries] = useState<SampleEntry[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
@@ -117,6 +119,20 @@ export function SongAnalysis() {
     };
     restore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const loadManifest = async () => {
+      try {
+        const resp = await fetch('/sample-stems/manifest.json', { cache: 'no-cache' });
+        if (!resp.ok) return;
+        const data = (await resp.json()) as SampleEntry[];
+        setSampleEntries(Array.isArray(data) ? data : []);
+      } catch {
+        // ignore
+      }
+    };
+    loadManifest();
   }, []);
 
   const ensureContext = async (resumeAudio = false) => {
@@ -281,6 +297,39 @@ export function SongAnalysis() {
     }
   };
 
+  const loadSample = async (entry: SampleEntry) => {
+    setError(null);
+    setIsDecoding(true);
+    setStatus('processing');
+    try {
+      const ctx = await ensureContext(true);
+      const resp = await fetch(entry.url);
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch sample (${resp.status})`);
+      }
+      const zipBuffer = await resp.arrayBuffer();
+      const { decoded: decodedStems, duration: dur } = await decodeStemsFromZip(zipBuffer, ctx);
+
+      if (decodedStems.size === 0) {
+        throw new Error('No stems in sample zip.');
+      }
+
+      stemBuffersRef.current = decodedStems;
+      setDuration(dur ?? null);
+      setStatus('ready');
+
+      await saveStemsZip(entry.id, entry.label, zipBuffer);
+      const stored = await listStems();
+      setEntries(stored);
+      setActiveEntryId(entry.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sample stems.');
+      setStatus('error');
+    } finally {
+      setIsDecoding(false);
+    }
+  };
+
   const stopPlayback = () => {
     sourcesRef.current.forEach(({ source }) => {
       try {
@@ -401,22 +450,46 @@ export function SongAnalysis() {
               <span />
               {recording ? `Recording… ${formatSeconds(recordSeconds)}` : 'Mic ready'}
             </div>
-          </div>
+            </div>
 
-          <div className="analysis-actions">
-            <button
-              type="button"
-              className="pill-button primary"
-              onClick={analyze}
-              disabled={isDecoding}
-            >
-              {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
-            </button>
-            <div className="saved-select">
-              <label htmlFor="saved-stems">Saved stems</label>
-              <select
-                id="saved-stems"
-                value={activeEntryId ?? ''}
+            <div className="analysis-actions">
+              <button
+                type="button"
+                className="pill-button primary"
+                onClick={analyze}
+                disabled={isDecoding}
+              >
+                {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
+              </button>
+              {sampleEntries.length > 0 && (
+                <div className="saved-select">
+                  <label htmlFor="sample-stems">Sample stems</label>
+                  <select
+                    id="sample-stems"
+                    defaultValue=""
+                    onChange={async (e) => {
+                      const nextId = e.target.value;
+                      if (!nextId) return;
+                      const sample = sampleEntries.find((s) => s.id === nextId);
+                      if (sample) {
+                        await loadSample(sample);
+                      }
+                    }}
+                  >
+                    <option value="">Pick sample…</option>
+                    {sampleEntries.map((sample) => (
+                      <option key={sample.id} value={sample.id}>
+                        {sample.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="saved-select">
+                <label htmlFor="saved-stems">Saved stems</label>
+                <select
+                  id="saved-stems"
+                  value={activeEntryId ?? ''}
                 onChange={async (e) => {
                   const nextId = e.target.value || null;
                   setActiveEntryId(nextId);
@@ -444,9 +517,32 @@ export function SongAnalysis() {
                   <option key={entry.id} value={entry.id}>
                     {entry.displayName} · {new Date(entry.createdAt).toLocaleString()}
                   </option>
-                ))}
-              </select>
-            </div>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                className="pill-button secondary"
+                onClick={async () => {
+                  if (!activeEntryId) {
+                    setError('Select stems to download.');
+                    return;
+                  }
+                  const record = await loadStemsZip(activeEntryId);
+                  if (!record) return;
+                  const blob = new Blob([record.zip], { type: 'application/zip' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${record.displayName || 'stems'}.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Download stems
+              </button>
             <div className="status-chip">
               {status === 'processing' && 'Processing…'}
               {status === 'ready' && 'Stems ready · press play'}

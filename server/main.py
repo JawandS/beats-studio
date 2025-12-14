@@ -8,12 +8,14 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.responses import StreamingResponse
 
 
 DEMUCS_MODEL = os.getenv("DEMUCS_MODEL", "htdemucs")
 DEMUCS_BIN = os.getenv("DEMUCS_BIN")
 FFMPEG_BIN = os.getenv("FFMPEG_BIN")
+SAMPLE_STEMS_DIR = Path(__file__).resolve().parent / "sample-stems"
 
 app = FastAPI(title="Beat Studio Backend", version="0.1.0")
 
@@ -24,6 +26,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Optional static sample stems for Railway/containers
+if SAMPLE_STEMS_DIR.exists():
+    app.mount("/sample-stems", StaticFiles(directory=SAMPLE_STEMS_DIR, html=False), name="sample-stems")
 
 
 @app.get("/health")
