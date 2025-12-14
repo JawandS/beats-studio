@@ -35,6 +35,48 @@ const formatSeconds = (seconds: number) => {
 };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+const STEM_STORAGE_KEY = 'beatstudio_stems_v1';
+const ZIP_STORAGE_KEY = 'beatstudio_stems_zip_v1';
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+const base64ToArrayBuffer = (base64: string) => {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
+const decodeStemsFromZip = async (
+  zipBuffer: ArrayBuffer,
+  ctx: AudioContext
+): Promise<{ decoded: Map<StemId, AudioBuffer>; duration: number | null }> => {
+  const zip = await JSZip.loadAsync(zipBuffer);
+  const decoded = new Map<StemId, AudioBuffer>();
+  let firstDuration: number | null = null;
+
+  for (const stemId of Object.keys(STEM_FILES) as StemId[]) {
+    const fileName = STEM_FILES[stemId];
+    const file = zip.file(fileName);
+    if (!file) continue;
+    const audioData = await file.async('arraybuffer');
+    const buf = await ctx.decodeAudioData(audioData.slice(0));
+    decoded.set(stemId, buf);
+    if (firstDuration === null) firstDuration = buf.duration;
+  }
+
+  return { decoded, duration: firstDuration };
+};
 
 export function SongAnalysis() {
   const [status, setStatus] = useState<Status>('idle');
@@ -62,8 +104,55 @@ export function SongAnalysis() {
     };
   }, []);
 
-  const ensureContext = async () => {
-    if (!audioCtxRef.current) {
+  useEffect(() => {
+    const restore = async () => {
+      try {
+        const cachedZip = localStorage.getItem(ZIP_STORAGE_KEY);
+        const cachedLegacy = localStorage.getItem(STEM_STORAGE_KEY);
+        const ctx = await ensureContext(false);
+
+        if (cachedZip) {
+          const zipBuffer = base64ToArrayBuffer(cachedZip);
+          const { decoded, duration: dur } = await decodeStemsFromZip(zipBuffer, ctx);
+          if (decoded.size > 0) {
+            stemBuffersRef.current = decoded;
+            setDuration(dur);
+            setStatus('ready');
+            setError(null);
+            return;
+          }
+        }
+
+        if (cachedLegacy) {
+          const parsed: { stems?: Record<StemId, string> } = JSON.parse(cachedLegacy);
+          if (!parsed?.stems) return;
+          const decoded = new Map<StemId, AudioBuffer>();
+          let firstDuration: number | null = null;
+          await Promise.all(
+            (Object.keys(parsed.stems) as StemId[]).map(async (stemId) => {
+              const buf = base64ToArrayBuffer(parsed.stems![stemId]);
+              const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+              decoded.set(stemId, audioBuf);
+              if (firstDuration === null) firstDuration = audioBuf.duration;
+            })
+          );
+          if (decoded.size > 0) {
+            stemBuffersRef.current = decoded;
+            setDuration(firstDuration);
+            setStatus('ready');
+            setError(null);
+          }
+        }
+      } catch {
+        // ignore cache errors
+      }
+    };
+    restore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const ensureContext = async (resumeAudio = false) => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
       const AudioCtx =
         window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) {
@@ -76,10 +165,25 @@ export function SongAnalysis() {
       audioCtxRef.current = ctx;
       masterGainRef.current = master;
     }
-    if (audioCtxRef.current?.state === 'suspended') {
+    if (resumeAudio && audioCtxRef.current?.state === 'suspended') {
       await audioCtxRef.current.resume();
     }
     return audioCtxRef.current!;
+  };
+
+  const ensureBuffersAvailable = async (ctx: AudioContext) => {
+    if (stemBuffersRef.current.size > 0) return;
+    const cachedZip = localStorage.getItem(ZIP_STORAGE_KEY);
+    if (!cachedZip) return;
+    try {
+      const zipBuffer = base64ToArrayBuffer(cachedZip);
+      const { decoded } = await decodeStemsFromZip(zipBuffer, ctx);
+      if (decoded.size > 0) {
+        stemBuffersRef.current = decoded;
+      }
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleFileChange = (file: File | null) => {
@@ -148,10 +252,10 @@ export function SongAnalysis() {
     setIsDecoding(true);
     setStatus('processing');
     try {
-      const ctx = await ensureContext();
       const formData = new FormData();
       formData.append('file', selectedFile);
 
+      const ctx = await ensureContext(true);
       const resp = await fetch(`${API_BASE}/separate`, {
         method: 'POST',
         body: formData,
@@ -177,26 +281,22 @@ export function SongAnalysis() {
       }
 
       const zipBuffer = await resp.arrayBuffer();
-      const zip = await JSZip.loadAsync(zipBuffer);
-
-      const decodedStems = new Map<StemId, AudioBuffer>();
-      for (const stemId of Object.keys(STEM_FILES) as StemId[]) {
-        const fileName = STEM_FILES[stemId];
-        const file = zip.file(fileName);
-        if (!file) continue;
-        const audioData = await file.async('arraybuffer');
-        const buf = await ctx.decodeAudioData(audioData.slice(0));
-        decodedStems.set(stemId, buf);
-      }
+      const { decoded: decodedStems, duration: dur } = await decodeStemsFromZip(zipBuffer, ctx);
 
       if (decodedStems.size === 0) {
         throw new Error('No stems returned from backend.');
       }
 
       stemBuffersRef.current = decodedStems;
-      const firstStem = decodedStems.values().next().value as AudioBuffer;
-      setDuration(firstStem?.duration ?? null);
+      setDuration(dur ?? null);
       setStatus('ready');
+
+      try {
+        localStorage.setItem(ZIP_STORAGE_KEY, arrayBufferToBase64(zipBuffer));
+        localStorage.removeItem(STEM_STORAGE_KEY); // drop legacy cache to save space
+      } catch {
+        // ignore cache failures
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to separate audio.');
       setStatus('error');
@@ -217,12 +317,13 @@ export function SongAnalysis() {
   };
 
   const play = async () => {
+    const ctx = await ensureContext(true);
+    await ensureBuffersAvailable(ctx);
     if (stemBuffersRef.current.size === 0) {
       setError('Analyze with Demucs first.');
       return;
     }
     stopPlayback();
-    const ctx = await ensureContext();
     const master = masterGainRef.current;
     if (!master) return;
     stems.forEach((stem) => {
@@ -230,6 +331,10 @@ export function SongAnalysis() {
       if (!stemBuffer) return;
       const source = ctx.createBufferSource();
       source.buffer = stemBuffer;
+       // Loop stems until manually stopped
+      source.loop = true;
+      source.loopStart = 0;
+      source.loopEnd = stemBuffer.duration;
       const gain = ctx.createGain();
       gain.gain.value = stem.muted ? 0 : stem.gain;
       source.connect(gain).connect(master);
