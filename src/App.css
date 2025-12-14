@@ -246,13 +246,185 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
   background: var(--color-bg-card);
   border: 1px solid var(--border-subtle);
-  padding: 12px 24px 12px 14px;
+  padding: 12px 16px;
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), var(--glow-primary);
+}
+
+/* Transport sections */
+.transport-primary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.transport-tempo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-bg-input);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  border-radius: 10px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.transport-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Play button - prominent, primary action */
+.play-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--gradient-primary);
+  color: var(--color-bg-base);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 300ms ease;
+  box-shadow: var(--glow-primary);
+  min-height: 48px;
+}
+
+.play-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-strong);
+}
+
+.play-button:active {
+  transform: translateY(0);
+}
+
+.play-button.playing {
+  background: var(--gradient-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.play-button svg {
+  flex-shrink: 0;
+}
+
+/* Status indicator */
+.status-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-text {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* Tempo label */
+.tempo-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+/* Action buttons - secondary, subtle */
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, color 150ms ease;
+  min-height: 36px;
+}
+
+.action-button:hover {
+  border-color: var(--color-primary);
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+}
+
+.action-button.danger:hover {
+  border-color: var(--color-error);
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--color-error);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.2);
+}
+
+.action-button svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.action-button:hover svg {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .transport {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .transport-tempo {
+    order: 3;
+    width: 100%;
+    max-width: none;
+  }
+
+  .transport-actions {
+    margin-left: 0;
+  }
+
+  .action-button span {
+    display: none;
+  }
+
+  .action-button {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .transport-primary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .play-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .transport-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* Nowrap only on larger screens */
@@ -262,12 +434,6 @@
   }
 }
 
-/* Allow wrapping on very small screens */
-@media (max-width: 700px) {
-  .transport {
-    flex-wrap: wrap;
-  }
-}
 
 /* Mobile landscape: compact transport padding */
 @media (max-width: 900px) and (max-height: 500px) {
@@ -277,21 +443,6 @@
   }
 }
 
-.transport-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
-  padding-right: 32px;
-}
-
-/* Mobile landscape: reduce gap */
-@media (max-width: 900px) and (max-height: 500px) {
-  .transport-left {
-    gap: 6px;
-  }
-}
 
 .pill-button {
   border: none;
@@ -371,60 +522,15 @@
   }
 }
 
-.tempo-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--color-bg-input);
-  border: 1px solid var(--border-subtle);
-  padding: 10px;
-  border-radius: 12px;
-  min-width: 180px;
-  max-width: 100%;
-  flex: 1 1 auto;
-}
-
-@media (max-width: 480px) {
-  .tempo-field {
-    min-width: unset;
-    width: 100%;
-  }
-}
-
-/* Mobile landscape: compact tempo field */
-@media (max-width: 900px) and (max-height: 500px) {
-  .tempo-field {
-    padding: 6px 8px;
-    gap: 6px;
-    min-width: 200px;
-  }
-}
-
-.tempo-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.tempo-field label {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.tempo-unit {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
 
 .tempo-stepper {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--color-bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 6px;
+  border-radius: 8px;
+  padding: 4px;
 }
 
 .tempo-stepper input {
@@ -446,37 +552,28 @@
   border: none;
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   display: grid;
   place-items: center;
-  min-width: 44px; /* Ensure touch target minimum */
-  min-height: 44px;
   transition: background 150ms ease, box-shadow 150ms ease;
 }
 
 .tempo-stepper button:hover {
-  background: rgba(139, 92, 246, 0.2);
-  box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
 }
 
 .tempo-stepper button:active {
-  background: rgba(139, 92, 246, 0.3);
-}
-
-/* Desktop: use smaller buttons */
-@media (min-width: 901px) {
-  .tempo-stepper button {
-    min-width: 32px;
-    min-height: 32px;
-  }
+  background: rgba(139, 92, 246, 0.35);
 }
 
 .tempo-slider {
-  width: 100%;
+  flex: 1;
+  min-width: 60px;
   accent-color: var(--color-primary);
 }
 
