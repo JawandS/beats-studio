@@ -3,5 +3,10 @@
     "id": "simple-phonk",
     "label": "Simple Phonk Beat",
     "url": "/sample-stems/phonk_loud.wav.zip"
+  },  
+  {
+    "id": "full-phonk",
+    "label": "Complete Phonk Beat",
+    "url": "/sample-stems/aumentar-o-grave.wav.zip"
   }
 ]
