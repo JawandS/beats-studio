@@ -767,7 +767,7 @@ export function Remix() {
     }
   };
 
-  const play = async () => {
+  const play = async (offset = 0) => {
     if (stemBuffersRef.current.size === 0) {
       setError('Pick a stem set first.');
       return;
@@ -871,16 +871,17 @@ export function Remix() {
       };
 
       applyMacroSettings(control, nodesObj, ctx);
-      source.start();
+      const startOffset = offset % buffer.duration;
+      source.start(0, startOffset);
       sourcesRef.current.set(control.id, nodesObj);
     });
 
     const first = stemBuffersRef.current.values().next().value?.normal as AudioBuffer;
     if (first && first.duration > 0) {
-      startTimeRef.current = ctx.currentTime;
+      startTimeRef.current = ctx.currentTime - (offset / tempoRef.current);
       progressTimerRef.current = window.setInterval(() => {
-        const elapsed = ctx.currentTime - startTimeRef.current;
-        const scaledDuration = first.duration / tempoRef.current;
+        const elapsed = (ctx.currentTime - startTimeRef.current) * tempoRef.current;
+        const scaledDuration = first.duration; // We are tracking in audio time now
         const normalized = scaledDuration > 0 ? (elapsed % scaledDuration) / scaledDuration : 0;
         setProgress(normalized);
         setLoopCount(scaledDuration > 0 ? Math.floor(elapsed / scaledDuration) : 0);
@@ -1118,6 +1119,21 @@ export function Remix() {
     }
   };
 
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (status !== 'playing' && status !== 'ready') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const percent = Math.max(0, Math.min(1, x / width));
+
+    // Calculate new offset in seconds
+    const first = stemBuffersRef.current.values().next().value?.normal;
+    if (!first) return;
+    const newTime = percent * first.duration;
+
+    play(newTime);
+  };
+
   useEffect(() => {
     tempoRef.current = tempo;
     const ctx = audioCtxRef.current;
@@ -1216,7 +1232,7 @@ export function Remix() {
                 <button
                   type="button"
                   className={`transport-btn-lg ${status === 'playing' ? 'stop' : 'play'}`}
-                  onClick={status === 'playing' ? stop : play}
+                  onClick={() => (status === 'playing' ? stop() : play())}
                   disabled={status === 'loading'}
                 >
                   {status === 'playing' ? 'Stop' : 'Play'}
@@ -1264,7 +1280,11 @@ export function Remix() {
               </div>
               {status === 'playing' && (
                 <div className="progress-wrap" style={{ gridColumn: 'span 2' }}>
-                  <div className="progress-bar">
+                  <div
+                    className="progress-bar"
+                    onClick={seek}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div className="progress-fill" style={{ width: `${progress * 100}%` }} />
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textAlign: 'right', marginTop: 4 }}>
