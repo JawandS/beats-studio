@@ -61,17 +61,17 @@ function App() {
         </button>
       </div>
 
-      <header className="hero">
-        <div className="hero-left">
-           <div className="hero-actions">
-            <TransportBar />
+      {page === 'sequencer' && (
+        <header className="hero">
+          <div className="hero-left">
+            <div className="hero-actions">
+              <TransportBar />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      <main>
-        {page === 'sequencer' ? <StepGrid /> : <SongAnalysis />}
-      </main>
+      <main>{page === 'sequencer' ? <StepGrid /> : <SongAnalysis />}</main>
     </div>
   );
 }

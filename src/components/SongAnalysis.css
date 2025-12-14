@@ -2,31 +2,32 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 10px 6px 18px;
 }
 
 .analysis-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .analysis-card {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 12px;
   background: #0a1322;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 860px) {
+@media (min-width: 960px) {
   .analysis-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1.2fr 1fr;
+    padding: 16px;
   }
 }
 
@@ -36,15 +37,15 @@
   gap: 12px;
   background: #0c192c;
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .upload-box {
   border: 1px dashed rgba(255, 255, 255, 0.18);
   border-radius: 12px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
   text-align: center;
 }
 
@@ -95,6 +96,7 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .status-chip {
