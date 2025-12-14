@@ -14,7 +14,7 @@ type StemControl = {
   width: number;
   echo: number;
   bitcrush: number;
-  reverse: boolean;
+
   reverbSend: number;
   macros: {
     vocalClean: boolean;
@@ -73,13 +73,7 @@ const cloneAudioBuffer = (ctx: AudioContext, buffer: AudioBuffer) => {
   return newBuffer;
 };
 
-const reverseBuffer = (ctx: AudioContext, buffer: AudioBuffer) => {
-  const newBuffer = cloneAudioBuffer(ctx, buffer);
-  for (let i = 0; i < newBuffer.numberOfChannels; i++) {
-    Array.prototype.reverse.call(newBuffer.getChannelData(i));
-  }
-  return newBuffer;
-};
+
 
 const STEM_FILES: Record<StemId, string> = {
   drums: 'drums.wav',
@@ -104,7 +98,6 @@ const baseControlForId = (id: StemId): StemControl => ({
   width: 1,
   echo: 0,
   bitcrush: 0,
-  reverse: false,
   reverbSend: 0,
   macros: { ...DEFAULT_MACROS },
 });
@@ -138,9 +131,7 @@ const decodeStemsFromZip = async (zipBuffer: ArrayBuffer, ctx: AudioContext) => 
     const audioData = await file.async('arraybuffer');
     const buf = await ctx.decodeAudioData(audioData.slice(0));
 
-    // Create reversed buffer eagerly
-    const rev = reverseBuffer(ctx, buf);
-    decoded.set(stemId, { normal: buf, reversed: rev });
+    decoded.set(stemId, { normal: buf, reversed: buf });
 
     if (duration === null) duration = buf.duration;
   }
@@ -734,7 +725,7 @@ export function Remix() {
     controls.forEach((control) => {
       const bufferSet = stemBuffersRef.current.get(control.id);
       if (!bufferSet) return;
-      const buffer = control.reverse ? bufferSet.reversed : bufferSet.normal;
+      const buffer = bufferSet.normal;
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;
@@ -875,53 +866,22 @@ export function Remix() {
     setError(null);
   };
 
-  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend' | 'echo' | 'bitcrush' | 'reverse', value: number | boolean) => {
-    // If toggling reverse, we must restart playback for just this stem if playing
-    if (key === 'reverse' && status === 'playing') {
-      // Stop this stem and restart it with new buffer
-      const oldNodes = sourcesRef.current.get(id);
-      if (oldNodes) {
-        try { oldNodes.source.stop(); } catch { }
-        // We essentially need to re-run the creation logic for this stem.
-        // For simplicity in this naive engine, we just trigger a full play restart or 
-        // we can just wait for user to hit stop/play. 
-        // BUT user expects toggle. Let's do a trick: set state, then useEffect or just force a re-play of all (brute force but safe)
-        // or smarter: Just hot-swap? AudioBufferSourceNode buffer is immutable. 
-        // So we have to recreate the source.
-      }
-      // Let the state update trigger a re-render/re-effect? No, 'play' is imperative.
-      // We will do a Quick Restart of everything for sync stability.
-      setControls(prev => {
-        // Cast to any to satisfy TS for the dynamic key assignment
-        const next = prev.map(c => c.id === id ? { ...c, [key]: value as any } : c);
-        // We need to trigger play() with new controls. 
-        // But we can't call play() from inside setState updater.
-        // This is a limitation of this structure.
-        return next;
-      });
-      // Force restart
-      setTimeout(() => {
-        if (status === 'playing') play();
-      }, 0);
-      return;
-    }
 
+  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend' | 'echo' | 'bitcrush', value: number) => {
     const nextControls = controls.map((c) => (c.id === id ? { ...c, [key]: value } : c));
     setControls(nextControls);
     const node = sourcesRef.current.get(id);
 
     if (node && audioCtxRef.current) {
-      if (typeof value === 'number') {
-        if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-        if (key === 'pan') node.pan.pan.setValueAtTime(value, audioCtxRef.current.currentTime);
-        if (key === 'width') node.width.setWidth(value);
-        if (key === 'reverbSend' && node.reverbSend) {
-          node.reverbSend.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-        }
-        if (key === 'echo') node.echo.output.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-        if (key === 'bitcrush') node.bitcrush.node.curve = makeDistortionCurve(value);
+      if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+      if (key === 'pan') node.pan.pan.setValueAtTime(value, audioCtxRef.current.currentTime);
+      if (key === 'width') node.width.setWidth(value);
+      if (key === 'reverbSend' && node.reverbSend) {
+        node.reverbSend.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
       }
-      // reverse handled above via restart
+      if (key === 'echo') node.echo.output.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+      if (key === 'bitcrush') node.bitcrush.node.curve = makeDistortionCurve(value);
+
       applyMacroSettings(
         nextControls.find((c) => c.id === id) ?? normalizeControl(id),
         node,
@@ -994,7 +954,7 @@ export function Remix() {
       controls.forEach((control) => {
         const bufferSet = stemBuffersRef.current.get(control.id);
         if (!bufferSet) return;
-        const buffer = control.reverse ? bufferSet.reversed : bufferSet.normal;
+        const buffer = bufferSet.normal;
         const source = offline.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
@@ -1350,10 +1310,7 @@ export function Remix() {
                   <span className="tooltip-term">Reverb</span>
                   <span>Space/Ambience send</span>
                 </div>
-                <div className="tooltip-item">
-                  <span className="tooltip-term">Reverse</span>
-                  <span>Play backwards</span>
-                </div>
+
               </div>
             </div>
           </div>
@@ -1391,17 +1348,7 @@ export function Remix() {
                       onChange={(e) => updateControl(c.id, 'pan', Number(e.target.value))}
                     />
                   </div>
-                  <div className="control-block">
-                    <label>
-                      Reverse
-                      <input
-                        type="checkbox"
-                        checked={c.reverse}
-                        onChange={(e) => updateControl(c.id, 'reverse', e.target.checked)}
-                        style={{ marginLeft: 8 }}
-                      />
-                    </label>
-                  </div>
+
                   <div className="control-block">
                     <label>Width</label>
                     <input
