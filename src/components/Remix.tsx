@@ -355,7 +355,7 @@ export function Remix() {
   useEffect(() => {
     return () => {
       stop();
-      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current?.close().catch(() => { });
     };
   }, []);
 
@@ -916,155 +916,194 @@ export function Remix() {
   return (
     <section className="analysis">
       <div className="analysis-card">
-        <div className="analysis-upload">
-          <div className="saved-select">
-            <label htmlFor="remix-samples">Sample stems (one at a time)</label>
-            <select
-              id="remix-samples"
-              value={activeEntryId?.startsWith('sample:') ? activeEntryId : ''}
-              onChange={async (e) => {
-                const nextId = e.target.value;
-                if (!nextId) return;
-                const sample = sampleEntries.find((s) => `sample:${s.id}` === nextId);
-                if (!sample) return;
-                const resp = await fetch(sample.url);
-                if (!resp.ok) {
-                  setError('Failed to fetch sample stems.');
-                  return;
-                }
-                const zip = await resp.arrayBuffer();
-                await loadEntry(`sample:${sample.id}`, zip);
-              }}
-            >
-              <option value="">Pick sample…</option>
-              {sampleEntries.map((sample) => (
-                <option key={sample.id} value={`sample:${sample.id}`}>
-                  {sample.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="saved-select">
-            <label htmlFor="remix-saved">Saved stems</label>
-            <select
-              id="remix-saved"
-              value={activeEntryId?.startsWith('saved:') ? activeEntryId : ''}
-              onChange={async (e) => {
-                const nextId = e.target.value;
-                if (!nextId) return;
-                const record = await loadStemsZip(nextId.replace('saved:', ''));
-                if (!record) {
-                  setError('Stems not found.');
-                  return;
-                }
-                await loadEntry(`saved:${record.id}`, record.zip);
-              }}
-            >
-              <option value="">Select stems…</option>
-              {entries.map((entry) => (
-                <option key={entry.id} value={`saved:${entry.id}`}>
-                  {entry.displayName} · {new Date(entry.createdAt).toLocaleString()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="playback-row">
-            <div className="control-block">
-              <label>Tempo x</label>
-              <input
-                type="range"
-                min={0.5}
-                max={1.5}
-                step={0.01}
-                value={tempo}
-                onChange={(e) => setTempo(Number(e.target.value))}
-                onMouseUp={() => {
-                  try {
-                    const updatedPerEntry = activeEntryId
-                      ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
-                      : perEntryControls;
-                    localStorage.setItem(
-                      REMIX_STATE_KEY,
-                      JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
-                    );
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                onTouchEnd={() => {
-                  try {
-                    const updatedPerEntry = activeEntryId
-                      ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
-                      : perEntryControls;
-                    localStorage.setItem(
-                      REMIX_STATE_KEY,
-                      JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
-                    );
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              className={`pill-button ${status === 'playing' ? 'secondary' : 'primary'}`}
-              onClick={status === 'playing' ? stop : play}
-              disabled={status === 'loading'}
-            >
-              {status === 'playing' ? 'Stop' : 'Play'}
-            </button>
-            <button type="button" className="pill-button secondary" onClick={resetAll}>
-              Reset
-            </button>
-            {status === 'playing' && (
-              <div className="progress-wrap">
-                <div className="progress-label">Loop {loopCount + 1}</div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${progress * 100}%` }} />
-                </div>
+        <aside className="analysis-upload studio-panel">
+          {/* Source Section */}
+          <section className="panel-section">
+            <div className="section-header">Source</div>
+            <div className="source-group">
+              <div className="source-item">
+                <label>Sample stems</label>
+                <select
+                  id="remix-samples"
+                  className="studio-select"
+                  value={activeEntryId?.startsWith('sample:') ? activeEntryId : ''}
+                  onChange={async (e) => {
+                    const nextId = e.target.value;
+                    if (!nextId) return;
+                    const sample = sampleEntries.find((s) => `sample:${s.id}` === nextId);
+                    if (!sample) return;
+                    const resp = await fetch(sample.url);
+                    if (!resp.ok) {
+                      setError('Failed to fetch sample stems.');
+                      return;
+                    }
+                    const zip = await resp.arrayBuffer();
+                    await loadEntry(`sample:${sample.id}`, zip);
+                  }}
+                >
+                  <option value="">Select sample...</option>
+                  {sampleEntries.map((sample) => (
+                    <option key={sample.id} value={`sample:${sample.id}`}>
+                      {sample.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
 
-          <div className="playback-row">
-            <div className="control-block">
-              <label>Limiter</label>
-              <button
-                type="button"
-                className={`pill-button ${limiterEnabled ? 'secondary' : 'primary'}`}
-                onClick={() => setLimiterEnabled((prev) => !prev)}
-              >
-                {limiterEnabled ? 'On' : 'Off'}
-              </button>
-            </div>
-            <div className="meter-wrap">
-              <div className="meter-label">Output</div>
-              <div className="meter-bar">
-                <div
-                  className="meter-fill"
-                  style={{ width: `${Math.max(0, Math.min(100, ((meterDb - MIN_METER_DB) / -MIN_METER_DB) * 100))}%` }}
-                />
+              <div className="source-item">
+                <label>Saved stems</label>
+                <select
+                  id="remix-saved"
+                  className="studio-select"
+                  value={activeEntryId?.startsWith('saved:') ? activeEntryId : ''}
+                  onChange={async (e) => {
+                    const nextId = e.target.value;
+                    if (!nextId) return;
+                    const record = await loadStemsZip(nextId.replace('saved:', ''));
+                    if (!record) {
+                      setError('Stems not found.');
+                      return;
+                    }
+                    await loadEntry(`saved:${record.id}`, record.zip);
+                  }}
+                >
+                  <option value="">Load saved...</option>
+                  {entries.map((entry) => (
+                    <option key={entry.id} value={`saved:${entry.id}`}>
+                      {entry.displayName} · {new Date(entry.createdAt).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="meter-read">{`${meterDb.toFixed(1)} dB`}</div>
             </div>
-          </div>
+          </section>
 
-          <div className="playback-row automation-row">
-            <button type="button" className="pill-button secondary" onClick={triggerBuild} disabled={status === 'loading'}>
-              {isBuilding ? 'Build (active)' : 'Build sweep'}
-            </button>
-            <button type="button" className="pill-button secondary" onClick={triggerTape} disabled={status === 'loading'}>
-              {isTaping ? 'Tape…' : 'Tape stop/start'}
-            </button>
-            <div className="control-block">
-              <label>Stutter</label>
-              <div className="macro-buttons">
+          {/* Transport Section */}
+          <section className="panel-section">
+            <div className="section-header">Transport</div>
+            <div className="transport-grid">
+              <div className="transport-main">
                 <button
                   type="button"
-                  className={`pill-button ${stutterRate === '1/4' ? 'secondary' : 'primary'}`}
+                  className={`transport-btn-lg ${status === 'playing' ? 'stop' : 'play'}`}
+                  onClick={status === 'playing' ? stop : play}
+                  disabled={status === 'loading'}
+                >
+                  {status === 'playing' ? 'Stop' : 'Play'}
+                </button>
+                <button type="button" className="reset-btn" onClick={resetAll} title="Reset All">
+                  ↺
+                </button>
+              </div>
+              <div className="tempo-control">
+                <div className="tempo-header">
+                  <span>PLAYBACK SPEED</span>
+                  <span>{Math.round(tempo * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  className="tempo-slider-track"
+                  min={0.5}
+                  max={1.5}
+                  step={0.01}
+                  value={tempo}
+                  onChange={(e) => setTempo(Number(e.target.value))}
+                  onMouseUp={() => {
+                    try {
+                      const updatedPerEntry = activeEntryId
+                        ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
+                        : perEntryControls;
+                      localStorage.setItem(
+                        REMIX_STATE_KEY,
+                        JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+                      );
+                    } catch { /* ignore */ }
+                  }}
+                  onTouchEnd={() => {
+                    try {
+                      const updatedPerEntry = activeEntryId
+                        ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
+                        : perEntryControls;
+                      localStorage.setItem(
+                        REMIX_STATE_KEY,
+                        JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+                      );
+                    } catch { /* ignore */ }
+                  }}
+                />
+              </div>
+              {status === 'playing' && (
+                <div className="progress-wrap" style={{ gridColumn: 'span 2' }}>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${progress * 100}%` }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textAlign: 'right', marginTop: 4 }}>
+                    Loop {loopCount + 1}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Master Chain */}
+          <section className="panel-section">
+            <div className="section-header">Master Chain</div>
+            <div className="master-row">
+              <div className="limiter-toggle" onClick={() => setLimiterEnabled(!limiterEnabled)}>
+                <div className={`toggle-switch ${limiterEnabled ? 'active' : ''}`}>
+                  <div className="toggle-thumb" />
+                </div>
+                Limiter
+              </div>
+              <div className="meter-compact">
+                <div className="meter-track">
+                  <div
+                    className="meter-val"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, ((meterDb - MIN_METER_DB) / -MIN_METER_DB) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', minWidth: 30, textAlign: 'right' }}>
+                  {meterDb.toFixed(0)}dB
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Perform */}
+          <section className="panel-section">
+            <div className="section-header">Perform</div>
+            <div className="perform-grid">
+              <button
+                type="button"
+                className={`perform-btn ${isBuilding ? 'active' : ''}`}
+                onClick={triggerBuild}
+                disabled={status === 'loading'}
+              >
+                Build Sweep
+              </button>
+              <button
+                type="button"
+                className={`perform-btn ${isTaping ? 'active' : ''}`}
+                onClick={triggerTape}
+                disabled={status === 'loading'}
+              >
+                Tape Stop
+              </button>
+
+              <div className="stutter-row">
+                <button
+                  type="button"
+                  className={`stutter-opt ${stutterRate === 'none' ? 'active' : ''}`}
+                  onClick={stopStutter}
+                  disabled={status === 'loading'}
+                >
+                  OFF
+                </button>
+                <button
+                  type="button"
+                  className={`stutter-opt ${stutterRate === '1/4' ? 'active' : ''}`}
                   onClick={() => toggleStutter('1/4')}
                   disabled={status === 'loading'}
                 >
@@ -1072,29 +1111,34 @@ export function Remix() {
                 </button>
                 <button
                   type="button"
-                  className={`pill-button ${stutterRate === '1/8' ? 'secondary' : 'primary'}`}
+                  className={`stutter-opt ${stutterRate === '1/8' ? 'active' : ''}`}
                   onClick={() => toggleStutter('1/8')}
                   disabled={status === 'loading'}
                 >
                   1/8
                 </button>
-                <button type="button" className="pill-button secondary" onClick={stopStutter} disabled={status === 'loading'}>
-                  Clear
-                </button>
               </div>
             </div>
-            <button
-              type="button"
-              className="pill-button primary"
-              onClick={mixdown}
-              disabled={isMixingDown || stemBuffersRef.current.size === 0 || status === 'loading'}
-            >
-              {isMixingDown ? 'Mixing…' : 'Mixdown to WAV'}
-            </button>
-          </div>
+          </section>
+
+          <button
+            type="button"
+            className="mixdown-btn"
+            onClick={mixdown}
+            disabled={isMixingDown || stemBuffersRef.current.size === 0 || status === 'loading'}
+          >
+            {isMixingDown ? 'Rendering Remix...' : 'Mixdown to WAV'}
+            {!isMixingDown && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+          </button>
 
           {error && <div className="error">{error}</div>}
-        </div>
+        </aside>
 
         <div className="analysis-notes">
           <h3>Stem controls</h3>
