@@ -32,7 +32,7 @@ if SAMPLE_STEMS_DIR.exists():
     app.mount("/sample-stems", StaticFiles(directory=SAMPLE_STEMS_DIR, html=False), name="sample-stems")
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "model": DEMUCS_MODEL}
 

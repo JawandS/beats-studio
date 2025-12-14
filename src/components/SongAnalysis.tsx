@@ -61,6 +61,7 @@ const decodeStemsFromZip = async (
 };
 
 export function SongAnalysis() {
+  const [serverAvailable, setServerAvailable] = useState(true);
   const [status, setStatus] = useState<Status>('idle');
   const [stems, setStems] = useState<Stem[]>(DEFAULT_STEMS);
   const [duration, setDuration] = useState<number | null>(null);
@@ -88,7 +89,7 @@ export function SongAnalysis() {
   useEffect(() => {
     return () => {
       stopPlayback();
-      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current?.close().catch(() => { });
       if (progressTimerRef.current) {
         window.clearInterval(progressTimerRef.current);
       }
@@ -133,6 +134,19 @@ export function SongAnalysis() {
       }
     };
     loadManifest();
+  }, []);
+
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        // Try to hit the health endpoint or root
+        const resp = await fetch(`${API_BASE}/health`);
+        setServerAvailable(resp.ok);
+      } catch {
+        setServerAvailable(false);
+      }
+    };
+    checkServer();
   }, []);
 
   const ensureContext = async (resumeAudio = false) => {
@@ -538,12 +552,19 @@ export function SongAnalysis() {
               type="button"
               className={`analyze-button ${isDecoding ? 'processing' : ''}`}
               onClick={analyze}
-              disabled={isDecoding || !selectedFile}
+              disabled={isDecoding || !selectedFile || !serverAvailable}
             >
               {isDecoding ? (
                 <>
                   <span className="spinner" />
                   <span>Separating stems...</span>
+                </>
+              ) : !serverAvailable ? (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.121-17.679" />
+                  </svg>
+                  <span>Server Not Available</span>
                 </>
               ) : (
                 <>
@@ -557,12 +578,13 @@ export function SongAnalysis() {
             </button>
 
             {/* Status */}
-            <div className={`status-badge ${status}`}>
-              {status === 'processing' && 'Processing audio...'}
-              {status === 'ready' && '✓ Stems ready'}
-              {status === 'playing' && `▶ Loop ${loopCount + 1}`}
-              {status === 'idle' && 'Waiting for audio'}
-              {status === 'error' && 'Error occurred'}
+            <div className={`status-badge ${!serverAvailable ? 'error' : status}`}>
+              {!serverAvailable && 'Server Not Available'}
+              {serverAvailable && status === 'processing' && 'Processing audio...'}
+              {serverAvailable && status === 'ready' && '✓ Stems ready'}
+              {serverAvailable && status === 'playing' && `▶ Loop ${loopCount + 1}`}
+              {serverAvailable && status === 'idle' && 'Waiting for audio'}
+              {serverAvailable && status === 'error' && 'Error occurred'}
             </div>
           </div>
 
