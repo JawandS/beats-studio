@@ -39,70 +39,70 @@ const defaultTracks: Track[] = [
   {
     id: 'kick',
     name: 'Kick',
-    color: '#f97316',
+    color: '#EC4899', // Magenta
     volume: 0.95,
     pattern: patternFrom([0, 4, 8, 12]),
   },
   {
     id: 'snare',
     name: 'Snare',
-    color: '#22d3ee',
+    color: '#8B5CF6', // Primary violet
     volume: 0.8,
     pattern: patternFrom([4, 12]),
   },
   {
     id: 'hat',
     name: 'Hat',
-    color: '#a855f7',
+    color: '#A855F7', // Bright violet
     volume: 0.75,
     pattern: patternFrom([0, 2, 4, 6, 8, 10, 12, 14]),
   },
   {
     id: 'clap',
     name: 'Clap',
-    color: '#ec4899',
+    color: '#F472B6', // Pink
     volume: 0.7,
     pattern: patternFrom([4, 12]),
   },
   {
     id: 'percussion',
     name: 'Perc',
-    color: '#84cc16',
+    color: '#22C55E', // Keep green for contrast
     volume: 0.6,
     pattern: patternFrom([3, 7, 11, 15]),
   },
   {
     id: 'openhat',
     name: 'OHat',
-    color: '#8b5cf6',
+    color: '#C084FC', // Light violet
     volume: 0.65,
     pattern: patternFrom([2, 6, 10, 14]),
   },
   {
     id: 'bass',
     name: 'Bass',
-    color: '#06b6d4',
+    color: '#7C3AED', // Deep violet
     volume: 0.85,
     pattern: patternFrom([0, 3, 7, 10]),
   },
   {
     id: 'chord',
     name: 'Stab',
-    color: '#f59e0b',
+    color: '#FBBF24', // Keep yellow for contrast
     volume: 0.6,
     pattern: patternFrom([0, 8]),
   },
   {
     id: 'vocal',
     name: 'Synth',
-    color: '#14b8a6',
+    color: '#A78BFA', // Soft violet
     volume: 0.65,
     pattern: patternFrom([1, 5, 9, 13]),
   },
   {
     id: 'riser',
     name: 'Riser',
-    color: '#ef4444',
+    color: '#FB7185', // Rose/coral
     volume: 0.5,
     pattern: patternFrom([15]),
   },

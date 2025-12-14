@@ -18,10 +18,10 @@ type StoredEntry = { id: string; displayName: string; createdAt: number };
 type SampleEntry = { id: string; label: string; url: string };
 
 const DEFAULT_STEMS: Stem[] = [
-  { id: 'drums', name: 'Drums / Perc', color: '#22d3ee', gain: 0.9, muted: false },
-  { id: 'bass', name: 'Bass', color: '#f97316', gain: 0.9, muted: false },
-  { id: 'vocals', name: 'Vocals', color: '#a855f7', gain: 0.9, muted: false },
-  { id: 'other', name: 'Other', color: '#e2e8f0', gain: 0.9, muted: false },
+  { id: 'drums', name: 'Drums / Perc', color: '#8B5CF6', gain: 0.9, muted: false },
+  { id: 'bass', name: 'Bass', color: '#EC4899', gain: 0.9, muted: false },
+  { id: 'vocals', name: 'Vocals', color: '#A855F7', gain: 0.9, muted: false },
+  { id: 'other', name: 'Other', color: '#C084FC', gain: 0.9, muted: false },
 ];
 
 const STEM_FILES: Record<StemId, string> = {

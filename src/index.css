@@ -1,27 +1,131 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
 
 :root {
+  /* Typography */
   font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #e2e8f0;
-  background-color: #060b16;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Primary - Vibrant Violet */
+  --color-primary: #8B5CF6;
+  --color-primary-bright: #A855F7;
+  --color-primary-glow: #C084FC;
+  --color-primary-dark: #7C3AED;
+
+  /* Secondary - Magenta/Pink accent */
+  --color-accent: #EC4899;
+  --color-accent-bright: #F472B6;
+
+  /* Backgrounds - Deep purple-tinted dark */
+  --color-bg-base: #0F0A1A;
+  --color-bg-card: #1A1025;
+  --color-bg-elevated: #251433;
+  --color-bg-input: #1F1630;
+
+  /* Text colors */
+  --color-text-primary: #F1E8FF;
+  --color-text-secondary: #C4B5D8;
+  --color-text-muted: #8B7DA0;
+
+  /* Semantic colors */
+  --color-success: #22C55E;
+  --color-warning: #FBBF24;
+  --color-error: #F87171;
+
+  /* Glow effects */
+  --glow-primary: 0 0 20px rgba(139, 92, 246, 0.5);
+  --glow-strong: 0 0 30px rgba(139, 92, 246, 0.7), 0 0 60px rgba(139, 92, 246, 0.3);
+  --glow-accent: 0 0 20px rgba(236, 72, 153, 0.5);
+  --glow-text: 0 0 10px rgba(192, 132, 252, 0.6);
+
+  /* Borders */
+  --border-subtle: rgba(139, 92, 246, 0.15);
+  --border-medium: rgba(139, 92, 246, 0.3);
+  --border-strong: rgba(139, 92, 246, 0.5);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(120deg, #8B5CF6, #A855F7);
+  --gradient-accent: linear-gradient(120deg, #EC4899, #F472B6);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Touch targets */
+  --touch-target-min: 44px;
+
+  /* Apply theme colors */
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-base);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Cyberpunk grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: -1;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 16% 24%, rgba(56, 189, 248, 0.08), transparent 30%),
-    radial-gradient(circle at 84% 18%, rgba(249, 115, 22, 0.08), transparent 24%),
-    #060b16;
-  color: #e2e8f0;
+  background:
+    radial-gradient(circle at 16% 24%, rgba(139, 92, 246, 0.12), transparent 30%),
+    radial-gradient(circle at 84% 18%, rgba(236, 72, 153, 0.08), transparent 24%),
+    radial-gradient(circle at 50% 80%, rgba(124, 58, 237, 0.06), transparent 40%),
+    var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* Global scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) rgba(139, 92, 246, 0.05);
 }
 
 a {

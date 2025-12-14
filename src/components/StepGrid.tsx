@@ -122,7 +122,7 @@ export function StepGrid() {
                 y={rowIndex * ROW_HEIGHT}
                 width={stageWidth}
                 height={ROW_HEIGHT}
-                fill={rowIndex % 2 === 0 ? '#0d1627' : '#0a1322'}
+                fill={rowIndex % 2 === 0 ? '#1A1025' : '#150D1E'}
               />
             ))}
 
@@ -135,8 +135,8 @@ export function StepGrid() {
                   y={0}
                   width={CELL_SIZE}
                   height={stageHeight}
-                  fill={isBar ? 'rgba(255,255,255,0.02)' : undefined}
-                  stroke="rgba(255,255,255,0.04)"
+                  fill={isBar ? 'rgba(139, 92, 246, 0.06)' : undefined}
+                  stroke="rgba(139, 92, 246, 0.12)"
                   strokeWidth={isBar ? 1.2 : 0.7}
                 />
               );
@@ -148,7 +148,7 @@ export function StepGrid() {
                 y={0}
                 width={CELL_SIZE}
                 height={stageHeight}
-                fill="rgba(16,185,129,0.12)"
+                fill="rgba(139, 92, 246, 0.2)"
               />
             )}
 
@@ -168,10 +168,10 @@ export function StepGrid() {
                     width={width}
                     height={height}
                     cornerRadius={10}
-                    fill={isOn ? track.color : '#121c2f'}
-                    stroke={isOn ? '#e2e8f0' : '#30445f'}
+                    fill={isOn ? track.color : '#1F1630'}
+                    stroke={isOn ? '#F1E8FF' : '#3D2854'}
                     strokeWidth={isHot ? 2.8 : 1.2}
-                    shadowBlur={isOn ? 8 : 0}
+                    shadowBlur={isOn ? 12 : 0}
                     shadowColor={track.color}
                     opacity={track.muted ? 0.45 : 1}
                     onMouseDown={() => handleToggle(track.id, stepIndex)}
