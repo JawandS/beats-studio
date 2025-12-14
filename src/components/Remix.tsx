@@ -20,6 +20,7 @@ type StemControl = {
     vocalClean: boolean;
     drumPunch: boolean;
     bassTighten: boolean;
+    bassBoost: boolean;
   };
 };
 
@@ -88,6 +89,7 @@ const DEFAULT_MACROS = {
   vocalClean: false,
   drumPunch: false,
   bassTighten: false,
+  bassBoost: false,
 };
 
 const baseControlForId = (id: StemId): StemControl => ({
@@ -295,6 +297,10 @@ const applyMacroSettings = (control: StemControl, nodes: StemNodes, ctx: BaseAud
   if (macros.bassTighten && id === 'bass') {
     hp.frequency.setTargetAtTime(35, now, 0.05);
     lp.frequency.setTargetAtTime(5000, now, 0.05);
+  }
+  if (macros.bassBoost && id === 'bass') {
+    tone.frequency.setTargetAtTime(80, now, 0.05);
+    tone.gain.setTargetAtTime(6, now, 0.05);
   }
 };
 
@@ -1310,6 +1316,14 @@ export function Remix() {
                   <span className="tooltip-term">Reverb</span>
                   <span>Space/Ambience send</span>
                 </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Bass Tight</span>
+                  <span>Cut mud (High-pass)</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Bass Boost</span>
+                  <span>Boost low end (80Hz)</span>
+                </div>
 
               </div>
             </div>
@@ -1416,13 +1430,22 @@ export function Remix() {
                           </button>
                         )}
                         {c.id === 'bass' && (
-                          <button
-                            type="button"
-                            className={`pill-button ${c.macros.bassTighten ? 'secondary' : 'primary'}`}
-                            onClick={() => toggleMacro(c.id, 'bassTighten')}
-                          >
-                            Bass tight
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className={`pill-button ${c.macros.bassTighten ? 'secondary' : 'primary'}`}
+                              onClick={() => toggleMacro(c.id, 'bassTighten')}
+                            >
+                              Bass tight
+                            </button>
+                            <button
+                              type="button"
+                              className={`pill-button ${c.macros.bassBoost ? 'secondary' : 'primary'}`}
+                              onClick={() => toggleMacro(c.id, 'bassBoost')}
+                            >
+                              Bass boost
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
