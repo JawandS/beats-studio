@@ -9,7 +9,7 @@ type StemId = 'drums' | 'bass' | 'vocals' | 'other';
 type StemControl = {
   id: StemId;
   gain: number;
-  pitch: number; // semitones
+
   pan: number;
   width: number;
   reverbSend: number;
@@ -59,7 +59,7 @@ const DEFAULT_MACROS = {
 const baseControlForId = (id: StemId): StemControl => ({
   id,
   gain: 0.9,
-  pitch: 0,
+
   pan: 0,
   width: 1,
   reverbSend: 0,
@@ -99,14 +99,13 @@ const decodeStemsFromZip = async (zipBuffer: ArrayBuffer, ctx: AudioContext) => 
   return { decoded, duration };
 };
 
-const pitchToRate = (semitones: number) => 2 ** (semitones / 12);
+
 const REMIX_STATE_KEY = 'beatstudio_remix_state_v1';
 const MIN_METER_DB = -60;
 type MacroKey = keyof StemControl['macros'];
 type StutterRate = 'none' | '1/4' | '1/8';
 
-const playbackRateForControl = (control: StemControl, tempoValue: number) =>
-  pitchToRate(control.pitch) * tempoValue;
+
 
 const encodeWav = (buffer: AudioBuffer) => {
   const numChannels = buffer.numberOfChannels;
@@ -271,6 +270,8 @@ export function Remix() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [loopCount, setLoopCount] = useState(0);
+  const [currentTimeFormatted, setCurrentTimeFormatted] = useState('00:00');
+  const [totalTimeFormatted, setTotalTimeFormatted] = useState('00:00');
   const [limiterEnabled, setLimiterEnabled] = useState(true);
   const [meterDb, setMeterDb] = useState<number>(MIN_METER_DB);
   const [stutterRate, setStutterRate] = useState<StutterRate>('none');
@@ -396,7 +397,7 @@ export function Remix() {
           }
           if (parsed.tempo) setTempo(parsed.tempo);
           if (parsed.controls) setControls(normalizeControls(parsed.controls));
-          if (parsed.entryId) setActiveEntryId(parsed.entryId);
+
         }
       } catch {
         /* ignore */
@@ -494,7 +495,7 @@ export function Remix() {
         reverb.buffer = createImpulseResponse(ctx);
       }
       const reverbReturn = reverbReturnRef.current ?? ctx.createGain();
-      reverbReturn.gain.value = 0.35;
+      reverbReturn.gain.value = 1.5;
 
       reverb.connect(reverbReturn);
 
@@ -569,7 +570,7 @@ export function Remix() {
     sourcesRef.current.forEach((nodes, id) => {
       const control = controls.find((c) => c.id === id);
       if (!control) return;
-      const targetRate = playbackRateForControl(control, tempoRef.current);
+      const targetRate = tempoRef.current;
       nodes.source.playbackRate.cancelScheduledValues(now);
       nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, now);
       nodes.source.playbackRate.linearRampToValueAtTime(0.01, now + stopDuration);
@@ -690,7 +691,7 @@ export function Remix() {
       source.loop = true;
       source.loopStart = 0;
       source.loopEnd = buffer.duration;
-      source.playbackRate.value = playbackRateForControl(control, tempoRef.current);
+      source.playbackRate.value = tempoRef.current;
       const gain = ctx.createGain();
       gain.gain.value = control.gain;
       const pan = ctx.createStereoPanner();
@@ -720,6 +721,16 @@ export function Remix() {
         const normalized = scaledDuration > 0 ? (elapsed % scaledDuration) / scaledDuration : 0;
         setProgress(normalized);
         setLoopCount(scaledDuration > 0 ? Math.floor(elapsed / scaledDuration) : 0);
+        const currentSec = elapsed % scaledDuration;
+        const totalSec = scaledDuration;
+
+        const fmt = (s: number) => {
+          const m = Math.floor(s / 60);
+          const sec = Math.floor(s % 60);
+          return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        };
+        setCurrentTimeFormatted(fmt(currentSec));
+        setTotalTimeFormatted(fmt(totalSec));
       }, 200);
     }
     setStatus('playing');
@@ -765,7 +776,7 @@ export function Remix() {
     setError(null);
   };
 
-  const updateControl = (id: StemId, key: 'gain' | 'pitch' | 'pan' | 'width' | 'reverbSend', value: number) => {
+  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend', value: number) => {
     const nextControls = controls.map((c) => (c.id === id ? { ...c, [key]: value } : c));
     setControls(nextControls);
     const node = sourcesRef.current.get(id);
@@ -776,12 +787,7 @@ export function Remix() {
       if (key === 'reverbSend' && node.reverbSend) {
         node.reverbSend.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
       }
-      if (key === 'pitch') {
-        node.source.playbackRate.setValueAtTime(
-          pitchToRate(nextControls.find((c) => c.id === id)?.pitch ?? 0) * tempoRef.current,
-          audioCtxRef.current.currentTime
-        );
-      }
+
       applyMacroSettings(
         nextControls.find((c) => c.id === id) ?? normalizeControl(id),
         node,
@@ -847,7 +853,7 @@ export function Remix() {
       const reverb = offline.createConvolver();
       reverb.buffer = createImpulseResponse(offline);
       const reverbReturn = offline.createGain();
-      reverbReturn.gain.value = 0.35;
+      reverbReturn.gain.value = 1.5;
       reverb.connect(reverbReturn).connect(master);
 
       controls.forEach((control) => {
@@ -858,7 +864,7 @@ export function Remix() {
         source.loop = true;
         source.loopStart = 0;
         source.loopEnd = buffer.duration;
-        source.playbackRate.value = playbackRateForControl(control, tempoRef.current);
+        source.playbackRate.value = tempoRef.current;
 
         const gain = offline.createGain();
         gain.gain.value = control.gain;
@@ -906,7 +912,7 @@ export function Remix() {
     sourcesRef.current.forEach(({ source, pan, width, reverbSend }, id) => {
       const control = controls.find((c) => c.id === id);
       if (!control) return;
-      source.playbackRate.setValueAtTime(playbackRateForControl(control, tempoRef.current), ctx.currentTime);
+      source.playbackRate.setValueAtTime(tempoRef.current, ctx.currentTime);
       pan.pan.setValueAtTime(control.pan, ctx.currentTime);
       width.setWidth(control.width);
       if (reverbSend) reverbSend.gain.setValueAtTime(control.reverbSend, ctx.currentTime);
@@ -917,6 +923,12 @@ export function Remix() {
     <section className="analysis">
       <div className="analysis-card">
         <aside className="analysis-upload studio-panel">
+          {status === 'loading' && (
+            <div className="loading-overlay">
+              <div className="spinner" />
+              <div className="loading-text">Loading Stems...</div>
+            </div>
+          )}
           {/* Source Section */}
           <section className="panel-section">
             <div className="section-header">Source</div>
@@ -1039,6 +1051,9 @@ export function Remix() {
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textAlign: 'right', marginTop: 4 }}>
                     Loop {loopCount + 1}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textAlign: 'right', marginTop: 2 }}>
+                    {currentTimeFormatted} / {totalTimeFormatted}
                   </div>
                 </div>
               )}
@@ -1164,17 +1179,7 @@ export function Remix() {
                       onChange={(e) => updateControl(c.id, 'gain', Number(e.target.value))}
                     />
                   </div>
-                  <div className="control-block">
-                    <label>Pitch (st)</label>
-                    <input
-                      type="range"
-                      min={-12}
-                      max={12}
-                      step={1}
-                      value={c.pitch}
-                      onChange={(e) => updateControl(c.id, 'pitch', Number(e.target.value))}
-                    />
-                  </div>
+
                   <div className="control-block">
                     <label>Pan</label>
                     <input
@@ -1191,7 +1196,7 @@ export function Remix() {
                     <input
                       type="range"
                       min={0}
-                      max={1.5}
+                      max={4}
                       step={0.01}
                       value={c.width}
                       onChange={(e) => updateControl(c.id, 'width', Number(e.target.value))}
@@ -1208,32 +1213,40 @@ export function Remix() {
                       onChange={(e) => updateControl(c.id, 'reverbSend', Number(e.target.value))}
                     />
                   </div>
-                  <div className="control-block macro-block">
-                    <label>Macros</label>
-                    <div className="macro-buttons">
-                      <button
-                        type="button"
-                        className={`pill-button ${c.macros.vocalClean ? 'secondary' : 'primary'}`}
-                        onClick={() => toggleMacro(c.id, 'vocalClean')}
-                      >
-                        Vocal clean
-                      </button>
-                      <button
-                        type="button"
-                        className={`pill-button ${c.macros.drumPunch ? 'secondary' : 'primary'}`}
-                        onClick={() => toggleMacro(c.id, 'drumPunch')}
-                      >
-                        Drum punch
-                      </button>
-                      <button
-                        type="button"
-                        className={`pill-button ${c.macros.bassTighten ? 'secondary' : 'primary'}`}
-                        onClick={() => toggleMacro(c.id, 'bassTighten')}
-                      >
-                        Bass tight
-                      </button>
+                  {['vocals', 'drums', 'bass'].includes(c.id) && (
+                    <div className="control-block macro-block">
+                      <label>Effects</label>
+                      <div className="macro-buttons">
+                        {c.id === 'vocals' && (
+                          <button
+                            type="button"
+                            className={`pill-button ${c.macros.vocalClean ? 'secondary' : 'primary'}`}
+                            onClick={() => toggleMacro(c.id, 'vocalClean')}
+                          >
+                            Vocal clean
+                          </button>
+                        )}
+                        {c.id === 'drums' && (
+                          <button
+                            type="button"
+                            className={`pill-button ${c.macros.drumPunch ? 'secondary' : 'primary'}`}
+                            onClick={() => toggleMacro(c.id, 'drumPunch')}
+                          >
+                            Drum punch
+                          </button>
+                        )}
+                        {c.id === 'bass' && (
+                          <button
+                            type="button"
+                            className={`pill-button ${c.macros.bassTighten ? 'secondary' : 'primary'}`}
+                            onClick={() => toggleMacro(c.id, 'bassTighten')}
+                          >
+                            Bass tight
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
