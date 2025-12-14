@@ -88,9 +88,12 @@ export function SongAnalysis() {
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [isDecoding, setIsDecoding] = useState(false);
+  const [playProgress, setPlayProgress] = useState(0);
+  const [loopCount, setLoopCount] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
+  const progressTimerRef = useRef<number | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const stemBuffersRef = useRef<Map<StemId, AudioBuffer>>(new Map());
@@ -101,6 +104,9 @@ export function SongAnalysis() {
     return () => {
       stopPlayback();
       audioCtxRef.current?.close().catch(() => {});
+      if (progressTimerRef.current) {
+        window.clearInterval(progressTimerRef.current);
+      }
     };
   }, []);
 
@@ -314,6 +320,12 @@ export function SongAnalysis() {
       }
     });
     sourcesRef.current.clear();
+    if (progressTimerRef.current) {
+      window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+    setPlayProgress(0);
+    setLoopCount(0);
   };
 
   const play = async () => {
@@ -331,7 +343,7 @@ export function SongAnalysis() {
       if (!stemBuffer) return;
       const source = ctx.createBufferSource();
       source.buffer = stemBuffer;
-       // Loop stems until manually stopped
+      // Loop stems until manually stopped
       source.loop = true;
       source.loopStart = 0;
       source.loopEnd = stemBuffer.duration;
@@ -341,6 +353,19 @@ export function SongAnalysis() {
       source.start();
       sourcesRef.current.set(stem.id, { source, gain });
     });
+    const first = stemBuffersRef.current.values().next().value as AudioBuffer;
+    if (first && !Number.isNaN(first.duration) && first.duration > 0) {
+      const start = ctx.currentTime;
+      if (progressTimerRef.current) {
+        window.clearInterval(progressTimerRef.current);
+      }
+      progressTimerRef.current = window.setInterval(() => {
+        const elapsed = ctx.currentTime - start;
+        const normalized = (elapsed % first.duration) / first.duration;
+        setPlayProgress(normalized);
+        setLoopCount(Math.floor(elapsed / first.duration));
+      }, 200);
+    }
     setStatus('playing');
   };
 
@@ -373,17 +398,6 @@ export function SongAnalysis() {
 
   return (
     <section className="analysis">
-      <div className="analysis-header">
-        <div>
-          <p className="eyebrow">Song intelligence</p>
-          <h2>Analyze & remix a track</h2>
-          <p className="lede">
-            Record or upload a song, separate stems (Demucs pipeline placeholder), and tweak levels to remix.
-          </p>
-        </div>
-        <div className="pill secondary subtle">Demucs-ready · 4-stem split</div>
-      </div>
-
       <div className="analysis-card">
         <div className="analysis-upload">
           <div className="upload-box">
@@ -419,36 +433,44 @@ export function SongAnalysis() {
             </div>
           </div>
 
-          <div className="analysis-actions">
-            <button
-              type="button"
-              className="pill-button primary"
-              onClick={analyze}
-              disabled={isDecoding}
-            >
-              {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
-            </button>
-            <div className="status-chip">
-              {status === 'processing' && 'Processing…'}
-              {status === 'ready' && 'Stems ready · press play'}
-              {status === 'playing' && 'Playing stems'}
-              {status === 'idle' && 'Load audio to analyze'}
+            <div className="analysis-actions">
+              <button
+                type="button"
+                className="pill-button primary"
+                onClick={analyze}
+                disabled={isDecoding}
+              >
+                {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
+              </button>
+              <div className="status-chip">
+                {status === 'processing' && 'Processing…'}
+                {status === 'ready' && 'Stems ready · press play'}
+                {status === 'playing' && `Playing stems · loop ${loopCount + 1}`}
+                {status === 'idle' && 'Load audio to analyze'}
+              </div>
             </div>
-          </div>
 
-          <div className="playback-row">
+            <div className="playback-row">
             <button
               type="button"
               className={`pill-button ${status === 'playing' ? 'secondary' : 'primary'}`}
-              onClick={status === 'playing' ? stop : play}
-              disabled={stemBuffersRef.current.size === 0 || status === 'processing'}
-            >
-              {status === 'playing' ? 'Stop playback' : 'Play stems'}
-            </button>
-            {blobUrl && (
-              <audio src={blobUrl} controls className="inline-audio" />
-            )}
-          </div>
+                onClick={status === 'playing' ? stop : play}
+                disabled={stemBuffersRef.current.size === 0 || status === 'processing'}
+              >
+                {status === 'playing' ? 'Stop playback' : 'Play stems'}
+              </button>
+              {status === 'playing' && (
+                <div className="progress-wrap">
+                  <div className="progress-label">Loop {loopCount + 1}</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${playProgress * 100}%` }} />
+                  </div>
+                </div>
+              )}
+              {blobUrl && (
+                <audio src={blobUrl} controls className="inline-audio" />
+              )}
+            </div>
 
           {error && <div className="error">{error}</div>}
         </div>
