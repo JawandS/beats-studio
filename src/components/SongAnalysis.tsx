@@ -506,7 +506,7 @@ export function SongAnalysis() {
                     className={`mute-button ${stem.muted ? 'muted' : ''}`}
                     onClick={() => toggleMute(stem.id)}
                   >
-                    {stem.muted ? 'Unmute' : 'Mute'}
+                    {stem.muted ? '🔇' : '🔊'}
                   </button>
                 </div>
               </div>
