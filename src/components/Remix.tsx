@@ -477,7 +477,7 @@ export function Remix() {
     }
 
     if (!limiterRef.current || !analyserRef.current || !reverbConvolverRef.current || !reverbReturnRef.current) {
-      const master = masterGainRef.current;
+
       const limiter = limiterRef.current ?? ctx.createDynamicsCompressor();
       limiter.threshold.value = -6;
       limiter.knee.value = 30;
