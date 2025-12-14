@@ -1108,6 +1108,7 @@ export function Remix() {
               </button>
 
               <div className="stutter-row">
+                <span className="stutter-label">Stutter:</span>
                 <button
                   type="button"
                   className={`stutter-opt ${stutterRate === 'none' ? 'active' : ''}`}
