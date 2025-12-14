@@ -14,6 +14,8 @@ type StemControl = {
   width: number;
   echo: number;
   bitcrush: number;
+  filter: number; // -1 (LPF) to 1 (HPF), 0 is neutral
+  gate: number; // 0 to 1 intensity
 
   reverbSend: number;
   macros: {
@@ -43,6 +45,7 @@ type StemNodes = {
   width: WidthStage;
   echo: { input: GainNode; output: GainNode; delay: DelayNode; feedback: GainNode };
   bitcrush: { node: WaveShaperNode; gain: GainNode };
+  gate: { node: GainNode; osc: OscillatorNode; gain: GainNode };
   reverbSend: GainNode | null;
   filters: FilterStage;
 };
@@ -94,6 +97,8 @@ const baseControlForId = (id: StemId): StemControl => ({
   width: 1,
   echo: 0,
   bitcrush: 0,
+  filter: 0,
+  gate: 0,
   reverbSend: 0,
   macros: { ...DEFAULT_MACROS },
 });
@@ -295,6 +300,51 @@ const applyMacroSettings = (control: StemControl, nodes: StemNodes, ctx: BaseAud
   if (macros.bassBoost && id === 'bass') {
     tone.frequency.setTargetAtTime(80, now, 0.05);
     tone.gain.setTargetAtTime(6, now, 0.05);
+  }
+
+  // DJ Filter Logic
+  // Filter range: -1 (LowPass) ... 0 (None) ... 1 (HighPass)
+  const fVal = control.filter || 0;
+  if (fVal < 0) {
+    // Low Pass Mode: Sweep cutoff from 20000 -> 200
+    // fVal goes -0.1 -> -1
+    const t = Math.abs(fVal);
+    // Exponential-ish mapping for natural feel
+    const cutoff = 20000 * Math.pow(0.01, t);
+    lp.frequency.setTargetAtTime(Math.max(20, cutoff), now, 0.1);
+    // Ensure HP is wide open
+    hp.frequency.setTargetAtTime(20, now, 0.1);
+  } else if (fVal > 0) {
+    // High Pass Mode: Sweep cutoff from 20 -> 2000
+    // fVal goes 0.1 -> 1
+    const t = fVal;
+    const cutoff = 20 * Math.pow(100, t);
+    hp.frequency.setTargetAtTime(Math.min(20000, cutoff), now, 0.1);
+    // Ensure LP is wide open
+    lp.frequency.setTargetAtTime(20000, now, 0.1);
+  } else {
+    // Neutral
+    lp.frequency.setTargetAtTime(20000, now, 0.1);
+    hp.frequency.setTargetAtTime(20, now, 0.1);
+  }
+
+  // Trance Gate Logic
+  const gateAmount = control.gate || 0;
+  if (nodes.gate) {
+    const { node: gateNode, gain: gateModGain } = nodes.gate;
+    // We want the gate to oscillate between (1 - Amount) and 1.
+    // Oscillator is -1 to 1.
+    // If we set Base Gain = 1 - (0.5 * Amount)
+    // And Mod Gain = 0.5 * Amount
+    // Then:
+    // Peak (+1 osc): (1 - 0.5A) + 0.5A = 1
+    // Valley (-1 osc): (1 - 0.5A) - 0.5A = 1 - A
+
+    const scale = 0.5 * gateAmount;
+    const base = 1 - scale;
+
+    gateNode.gain.setTargetAtTime(base, now, 0.1);
+    gateModGain.gain.setTargetAtTime(scale, now, 0.1);
   }
 };
 
@@ -649,7 +699,7 @@ export function Remix() {
   };
 
   const stop = () => {
-    sourcesRef.current.forEach(({ source, gain, pan, width, reverbSend, filters }) => {
+    sourcesRef.current.forEach(({ source, gain, pan, width, reverbSend, filters, gate }) => {
       try {
         source.stop();
       } catch {
@@ -665,6 +715,12 @@ export function Remix() {
         filters.hp.disconnect();
         filters.tone.disconnect();
         filters.lp.disconnect();
+        if (gate) {
+          gate.node.disconnect();
+          gate.gain.disconnect();
+          gate.osc.stop();
+          gate.osc.disconnect();
+        }
       } catch {
         /* ignore */
       }
@@ -748,6 +804,20 @@ export function Remix() {
       bitcrushNode.curve = makeDistortionCurve(control.bitcrush || 0);
       bitcrushNode.oversample = 'none';
 
+      // Trance Gate
+      const gateNode = ctx.createGain();
+      gateNode.gain.value = 1;
+      const gateOsc = ctx.createOscillator();
+      gateOsc.type = 'square';
+      gateOsc.frequency.value = 4 * (tempoRef.current * 2);
+      gateOsc.start();
+
+      const gateModGain = ctx.createGain();
+      gateModGain.gain.value = control.gate || 0;
+
+      gateOsc.connect(gateModGain);
+      gateModGain.connect(gateNode.gain);
+
       // Echo
       const echoInput = ctx.createGain();
       const echoDelay = ctx.createDelay();
@@ -769,6 +839,7 @@ export function Remix() {
       source.connect(filters.hp)
         .connect(filters.tone)
         .connect(filters.lp)
+        .connect(gateNode)
         .connect(bitcrushNode)
         .connect(bitcrushGain)
         .connect(gain)
@@ -794,7 +865,9 @@ export function Remix() {
         reverbSend,
         filters,
         echo: { input: echoInput, output: echoOutput, delay: echoDelay, feedback: echoFeedback },
-        bitcrush: { node: bitcrushNode, gain: bitcrushGain }
+
+        bitcrush: { node: bitcrushNode, gain: bitcrushGain },
+        gate: { node: gateNode, osc: gateOsc, gain: gateModGain }
       };
 
       applyMacroSettings(control, nodesObj, ctx);
@@ -867,7 +940,7 @@ export function Remix() {
   };
 
 
-  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend' | 'echo' | 'bitcrush', value: number) => {
+  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend' | 'echo' | 'bitcrush' | 'filter' | 'gate', value: number) => {
     const nextControls = controls.map((c) => (c.id === id ? { ...c, [key]: value } : c));
     setControls(nextControls);
     const node = sourcesRef.current.get(id);
@@ -881,6 +954,7 @@ export function Remix() {
       }
       if (key === 'echo') node.echo.output.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
       if (key === 'bitcrush') node.bitcrush.node.curve = makeDistortionCurve(value);
+      // filter and gate logic handled in applyMacroSettings for now (reusing the logic)
 
       applyMacroSettings(
         nextControls.find((c) => c.id === id) ?? normalizeControl(id),
@@ -978,6 +1052,18 @@ export function Remix() {
         bitcrushNode.curve = makeDistortionCurve(control.bitcrush || 0);
         bitcrushNode.oversample = 'none';
 
+        // Gate for mixdown
+        const gateNode = offline.createGain();
+        gateNode.gain.value = 1;
+        const gateOsc = offline.createOscillator();
+        gateOsc.type = 'square';
+        gateOsc.frequency.value = 4 * (tempoRef.current * 2);
+        gateOsc.start();
+        const gateModGain = offline.createGain();
+        gateModGain.gain.value = control.gate || 0;
+        gateOsc.connect(gateModGain);
+        gateModGain.connect(gateNode.gain);
+
         const echoInput = offline.createGain();
         const echoDelay = offline.createDelay();
         echoDelay.delayTime.value = 0.33;
@@ -993,7 +1079,8 @@ export function Remix() {
         echoOutput.connect(master);
 
         // source -> filters -> bitcrush -> gain -> pan -> width -> master
-        source.connect(filters.hp).connect(filters.tone).connect(filters.lp).connect(bitcrushNode).connect(bitcrushGain).connect(gain).connect(pan).connect(width.input);
+        // source -> filters -> gate -> bitcrush -> gain -> pan -> width -> master
+        source.connect(filters.hp).connect(filters.tone).connect(filters.lp).connect(gateNode).connect(bitcrushNode).connect(bitcrushGain).connect(gain).connect(pan).connect(width.input);
         width.output.connect(master);
 
         width.output.connect(echoInput);
@@ -1003,7 +1090,12 @@ export function Remix() {
           reverbSend.connect(reverb);
         }
 
-        applyMacroSettings(control, { source, gain, pan, width, reverbSend, filters, echo: { input: echoInput, output: echoOutput, delay: echoDelay, feedback: echoFeedback }, bitcrush: { node: bitcrushNode, gain: bitcrushGain } }, offline);
+        applyMacroSettings(control, {
+          source, gain, pan, width, reverbSend, filters,
+          echo: { input: echoInput, output: echoOutput, delay: echoDelay, feedback: echoFeedback },
+          bitcrush: { node: bitcrushNode, gain: bitcrushGain },
+          gate: { node: gateNode, osc: gateOsc, gain: gateModGain }
+        }, offline);
         source.start();
       });
 
@@ -1030,10 +1122,13 @@ export function Remix() {
     tempoRef.current = tempo;
     const ctx = audioCtxRef.current;
     if (status !== 'playing' || !ctx) return;
-    sourcesRef.current.forEach(({ source, pan, width, reverbSend, echo, bitcrush }, id) => {
+    sourcesRef.current.forEach(({ source, pan, width, reverbSend, echo, bitcrush, gate }, id) => {
       const control = controls.find((c) => c.id === id);
       if (!control) return;
       source.playbackRate.setValueAtTime(tempoRef.current, ctx.currentTime);
+      if (gate) {
+        gate.osc.frequency.setValueAtTime(4 * (tempoRef.current * 2), ctx.currentTime);
+      }
       pan.pan.setValueAtTime(control.pan, ctx.currentTime);
       width.setWidth(control.width);
       if (reverbSend) reverbSend.gain.setValueAtTime(control.reverbSend, ctx.currentTime);
@@ -1288,37 +1383,44 @@ export function Remix() {
               <div className="tooltip-list">
                 <div className="tooltip-item">
                   <span className="tooltip-term">Vol</span>
-                  <span>Adjust stem gain level</span>
+                  <span>Loudness. (Ex: Fade out the drums)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Pan</span>
-                  <span>Stereo position (L/R)</span>
+                  <span>L/R Position. (Ex: Move vocals to left ear)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Width</span>
-                  <span>Stereo image width</span>
+                  <span>Stereo Spread. (Ex: Make it fill the room)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Echo</span>
-                  <span>Digital delay amount</span>
+                  <span>Delays. (Ex: "Hello... hello... hello")</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Crush</span>
-                  <span>Bit reduction (Lo-Fi)</span>
+                  <span>Digital Distortion. (Ex: Old video game sound)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Reverb</span>
-                  <span>Space/Ambience send</span>
+                  <span>Space. (Ex: Singing in a cave vs closet)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Bass Tight</span>
-                  <span>Cut mud (High-pass)</span>
+                  <span>Clean Mud. (Ex: Punchy kick, less boom)</span>
                 </div>
                 <div className="tooltip-item">
                   <span className="tooltip-term">Bass Boost</span>
-                  <span>Boost low end (80Hz)</span>
+                  <span>Add Thump. (Ex: Car subwoofer feel)</span>
                 </div>
-
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Filter</span>
+                  <span>Color. (Left: Underwater / Right: Tinny radio)</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Gate</span>
+                  <span>Rhythm. (Ex: Turn sustained sound into pulse)</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1388,6 +1490,29 @@ export function Remix() {
                       step={0.01}
                       value={c.bitcrush}
                       onChange={(e) => updateControl(c.id, 'bitcrush', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="control-block">
+                    <label>Filter</label>
+                    <input
+                      type="range"
+                      min={-1}
+                      max={1}
+                      step={0.01}
+                      value={c.filter}
+                      title="Left: Low Pass / Right: High Pass"
+                      onChange={(e) => updateControl(c.id, 'filter', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="control-block">
+                    <label>Gate</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={c.gate}
+                      onChange={(e) => updateControl(c.id, 'gate', Number(e.target.value))}
                     />
                   </div>
                   <div className="control-block">
