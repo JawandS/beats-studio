@@ -301,7 +301,7 @@ const applyMacroSettings = (control: StemControl, nodes: StemNodes, ctx: BaseAud
   tone.type = 'peaking';
   tone.frequency.setTargetAtTime(baseToneFreq, now, 0.05);
   tone.gain.setTargetAtTime(baseToneGain, now, 0.05);
-  tone.Q.setTargetAtTime(0.707, now, 0.05);
+  tone.Q.setTargetAtTime(baseToneQ, now, 0.05);
 
   // DJ Filter Logic (Relative to Base)
   // Filter range: -1 (LowPass) ... 0 (None) ... 1 (HighPass)
