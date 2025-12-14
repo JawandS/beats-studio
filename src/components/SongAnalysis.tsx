@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { useEffect, useRef, useState } from 'react';
-import { clearStemsZip, loadStemsZip, saveStemsZip } from '../utils/stemStorage';
+import { listStems, loadStemsZip, saveStemsZip } from '../utils/stemStorage';
 import './SongAnalysis.css';
 
 type StemId = 'drums' | 'bass' | 'vocals' | 'other';
@@ -14,6 +14,7 @@ type Stem = {
 };
 
 type Status = 'idle' | 'processing' | 'ready' | 'playing' | 'error';
+type StoredEntry = { id: string; displayName: string; createdAt: number };
 
 const DEFAULT_STEMS: Stem[] = [
   { id: 'drums', name: 'Drums / Perc', color: '#22d3ee', gain: 0.9, muted: false },
@@ -70,6 +71,8 @@ export function SongAnalysis() {
   const [isDecoding, setIsDecoding] = useState(false);
   const [playProgress, setPlayProgress] = useState(0);
   const [loopCount, setLoopCount] = useState(0);
+  const [entries, setEntries] = useState<StoredEntry[]>([]);
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
@@ -93,10 +96,15 @@ export function SongAnalysis() {
   useEffect(() => {
     const restore = async () => {
       try {
-        const cachedZip = await loadStemsZip();
-        if (!cachedZip) return;
+        const stored = await listStems();
+        setEntries(stored);
+        if (stored.length === 0) return;
+        const latest = stored[0];
+        setActiveEntryId(latest.id);
+        const record = await loadStemsZip(latest.id);
+        if (!record) return;
         const ctx = await ensureContext(false);
-        const { decoded, duration: dur } = await decodeStemsFromZip(cachedZip, ctx);
+        const { decoded, duration: dur } = await decodeStemsFromZip(record.zip, ctx);
         if (decoded.size > 0) {
           stemBuffersRef.current = decoded;
           setDuration(dur);
@@ -133,10 +141,11 @@ export function SongAnalysis() {
 
   const ensureBuffersAvailable = async (ctx: AudioContext) => {
     if (stemBuffersRef.current.size > 0) return;
-    const cachedZip = await loadStemsZip();
-    if (!cachedZip) return;
+    if (!activeEntryId) return;
+    const cached = await loadStemsZip(activeEntryId);
+    if (!cached) return;
     try {
-      const { decoded } = await decodeStemsFromZip(cachedZip, ctx);
+      const { decoded } = await decodeStemsFromZip(cached.zip, ctx);
       if (decoded.size > 0) {
         stemBuffersRef.current = decoded;
       }
@@ -157,7 +166,7 @@ export function SongAnalysis() {
     setError(null);
     stemBuffersRef.current.clear();
     setStems(DEFAULT_STEMS);
-    clearStemsZip().catch(() => {});
+    setActiveEntryId(null);
   };
 
   const startRecording = async () => {
@@ -251,7 +260,19 @@ export function SongAnalysis() {
       setDuration(dur ?? null);
       setStatus('ready');
 
-      await saveStemsZip(zipBuffer);
+      const entryId =
+        selectedFile?.name && selectedFile.name !== 'recording.webm'
+          ? selectedFile.name
+          : `recording-${Date.now()}`;
+      const displayName =
+        selectedFile?.name && selectedFile.name !== 'recording.webm'
+          ? selectedFile.name
+          : `Mic recording ${new Date().toLocaleTimeString()}`;
+
+      await saveStemsZip(entryId, displayName, zipBuffer);
+      const stored = await listStems();
+      setEntries(stored);
+      setActiveEntryId(entryId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to separate audio.');
       setStatus('error');
@@ -382,20 +403,55 @@ export function SongAnalysis() {
             </div>
           </div>
 
-            <div className="analysis-actions">
-              <button
-                type="button"
-                className="pill-button primary"
-                onClick={analyze}
-                disabled={isDecoding}
+          <div className="analysis-actions">
+            <button
+              type="button"
+              className="pill-button primary"
+              onClick={analyze}
+              disabled={isDecoding}
+            >
+              {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
+            </button>
+            <div className="saved-select">
+              <label htmlFor="saved-stems">Saved stems</label>
+              <select
+                id="saved-stems"
+                value={activeEntryId ?? ''}
+                onChange={async (e) => {
+                  const nextId = e.target.value || null;
+                  setActiveEntryId(nextId);
+                  stemBuffersRef.current.clear();
+                  if (nextId) {
+                    const record = await loadStemsZip(nextId);
+                    if (record) {
+                      const ctx = await ensureContext(false);
+                      const { decoded, duration: dur } = await decodeStemsFromZip(record.zip, ctx);
+                      if (decoded.size > 0) {
+                        stemBuffersRef.current = decoded;
+                        setDuration(dur);
+                        setStatus('ready');
+                        setError(null);
+                        return;
+                      }
+                    }
+                  }
+                  setStatus('idle');
+                  setDuration(null);
+                }}
               >
-                {isDecoding ? 'Analyzing…' : 'Analyze with Demucs'}
-              </button>
-              <div className="status-chip">
-                {status === 'processing' && 'Processing…'}
-                {status === 'ready' && 'Stems ready · press play'}
-                {status === 'playing' && `Playing stems · loop ${loopCount + 1}`}
-                {status === 'idle' && 'Load audio to analyze'}
+                <option value="">Select stems…</option>
+                {entries.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.displayName} · {new Date(entry.createdAt).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="status-chip">
+              {status === 'processing' && 'Processing…'}
+              {status === 'ready' && 'Stems ready · press play'}
+              {status === 'playing' && `Playing stems · loop ${loopCount + 1}`}
+              {status === 'idle' && 'Load audio to analyze'}
               </div>
             </div>
 
