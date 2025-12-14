@@ -3,8 +3,9 @@ import './App.css';
 import { StepGrid } from './components/StepGrid';
 import { TransportBar } from './components/TransportBar';
 import { SongAnalysis } from './components/SongAnalysis';
+import { Remix } from './components/Remix';
 
-type Page = 'sequencer' | 'analysis';
+type Page = 'sequencer' | 'analysis' | 'remix';
 const PAGE_KEY = 'beatstudio_active_page_v1';
 
 function App() {
@@ -13,8 +14,8 @@ function App() {
 
   useEffect(() => {
     const saved = localStorage.getItem(PAGE_KEY);
-    if (saved === 'analysis' || saved === 'sequencer') {
-      setPage(saved);
+    if (saved === 'analysis' || saved === 'sequencer' || saved === 'remix') {
+      setPage(saved as Page);
     }
   }, []);
 
@@ -47,6 +48,13 @@ function App() {
           >
             Analysis
           </button>
+          <button
+            type="button"
+            className={`nav-link ${page === 'remix' ? 'active' : ''}`}
+            onClick={() => navigate('remix')}
+          >
+            Remix
+          </button>
         </nav>
 
         <button
@@ -71,7 +79,11 @@ function App() {
         </header>
       )}
 
-      <main>{page === 'sequencer' ? <StepGrid /> : <SongAnalysis />}</main>
+      <main>
+        {page === 'sequencer' && <StepGrid />}
+        {page === 'analysis' && <SongAnalysis />}
+        {page === 'remix' && <Remix />}
+      </main>
     </div>
   );
 }
