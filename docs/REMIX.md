@@ -15,9 +15,11 @@ Simple, high-impact tools to make separated stems feel like a remix without need
 - Live-safe: limiter on the master to prevent clipping; meters show green/amber/red only.
 
 ## Current Remix tab snapshot (code)
-- `src/components/Remix.tsx` already: stem decode/playback; per-stem gain + pitch; tempo slider; per-entry state persisted in `REMIX_STATE_KEY` (`tempo`, `controls`, `entryId`, `perEntryControls`).
-- Master chain: single `masterGainRef` to destination; no limiter, pan, width, sends, or meters yet.
-- Sources: one `AudioBufferSourceNode` per stem, looped; playback rate = pitch-to-rate * tempo; gain node per stem.
+- `src/components/Remix.tsx`: stem decode/playback with per-stem gain + pitch + pan + width + reverb send; tempo slider; per-entry state persisted in `REMIX_STATE_KEY` (`tempo`, `controls`, `entryId`, `perEntryControls`).
+- Master chain: `masterGain` → stutter gate → master HP/LP filters → soft limiter (DynamicsCompressor) → analyser → destination; impulse-based reverb bus summed into master pre-limiter. Limiter toggle + output meter added in UI.
+- Sources: one `AudioBufferSourceNode` per stem, looped; playback rate = pitch-to-rate * tempo; per-stem nodes = filters → gain → StereoPanner → width stage (mid/side) → master + optional reverb send.
+- Macro filters: per-stem filter stages with macro toggles (Vocal clean, Drum punch, Bass tight) driving high-pass/tone/low-pass settings. Build sweep, tape stop/start, and stutter (1/4, 1/8) automation hooked to master filters/playback rate/stutter gate.
+- Mixdown: offline render to WAV via `Mixdown to WAV` button (includes macros, pan/width, reverb).
 - Persistence: localStorage + per-entry map; defaults in `DEFAULT_CONTROLS`; sample manifests fetched from `/sample-stems/manifest.json`.
 - SongAnalysis page already writes stems to IndexedDB via `stemStorage`; Remix page pulls from it (sample/saved dropdowns).
 
@@ -78,23 +80,25 @@ Simple, high-impact tools to make separated stems feel like a remix without need
 - A/B compare state save (local only, per entry).
 
 ## Step-by-step TODOs
-- [ ] Audio graph foundation (`src/components/Remix.tsx`)
-  - [ ] Add master chain: gain → soft clipper/compressor → analyser → destination inside `ensureContext`.
-  - [ ] Create shared send nodes (reverb/delay) and per-stem send gains; route returns to master pre-limiter.
-  - [ ] Extend per-stem chain to include `StereoPanner` + width node (mid/side matrix helper).
-- [ ] State model updates
-  - [ ] Extend `StemControl` to include `pan`, `width`, `reverbSend`, macro flags; add defaults.
-  - [ ] Update `perEntryControls`/`REMIX_STATE_KEY` hydration to backfill missing fields for old saves.
+- [x] Audio graph foundation (`src/components/Remix.tsx`)
+  - [x] Add master chain: gain → soft clipper/compressor → analyser → destination inside `ensureContext`.
+  - [x] Create shared send nodes (reverb now; delay pending) and per-stem send gains; route returns to master pre-limiter.
+  - [x] Extend per-stem chain to include `StereoPanner` + width node (mid/side matrix helper).
+- [x] State model updates
+  - [x] Extend `StemControl` to include `pan`, `width`, `reverbSend`, macro flags; add defaults.
+  - [x] Update `perEntryControls`/`REMIX_STATE_KEY` hydration to backfill missing fields for old saves.
 - [ ] UI controls
-  - [ ] Per-stem UI: pan slider, width slider, reverb send knob, macro toggles (Vocal clean, Drum punch, Bass tighten).
-  - [ ] Master UI: limiter on/off (default on), loudness meter display, build/tape/stutter buttons, mixdown button (disabled until ready).
+  - [x] Per-stem UI: pan slider, width slider, reverb send knob.
+  - [x] Macro toggles (Vocal clean, Drum punch, Bass tighten).
+  - [x] Master UI: limiter on/off (default on), loudness meter display.
+  - [x] Master UI: build/tape/stutter buttons, mixdown button.
 - [ ] Behavior wiring
-  - [ ] Apply pan/width/reverb sends when starting playback; live updates propagate to active nodes.
-  - [ ] Macro handlers that set safe parameter bundles and mark active chips; reset on toggle off.
-  - [ ] Meter loop using analyser + `requestAnimationFrame`; tie into existing progress loop lifecycle.
-  - [ ] Automation helpers for build/tape/stutter with auto-reset on stop.
-- [ ] Mixdown/export
-  - [ ] Implement offline render with current settings; convert to WAV; surface download + error state.
+  - [x] Apply pan/width/reverb sends when starting playback; live updates propagate to active nodes.
+  - [x] Macro handlers that set safe parameter bundles and mark active chips; reset on toggle off.
+  - [x] Meter loop using analyser + `requestAnimationFrame`; tie into existing progress loop lifecycle.
+  - [x] Automation helpers for build/tape/stutter with auto-reset on stop.
+- [x] Mixdown/export
+  - [x] Implement offline render with current settings; convert to WAV; surface download + error state.
 - [ ] Persistence/QA
   - [ ] Confirm localStorage migrations work (old saves load with defaults).
   - [ ] Sanity test sample and saved stem flows; verify limiter prevents clipping when boosting stems.
