@@ -1,0 +1,120 @@
+.analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.analysis-card {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  background: #0a1322;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 860px) {
+  .analysis-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analysis-upload {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  background: #0c192c;
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.upload-box {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.upload-box input[type='file'] {
+  display: none;
+}
+
+.upload-box label {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #13243b;
+  color: #e2e8f0;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.or-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.or-divider span:first-child,
+.or-divider span:last-child {
+  display: block;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.link-box {
+  display: grid;
+  gap: 6px;
+}
+
+.link-box input {
+  background: #0f1d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #f8fafc;
+}
+
+.link-box button {
+  justify-self: start;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(120deg, #22d3ee, #38bdf8);
+  color: #04101f;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analysis-notes {
+  background: #0c192c;
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.analysis-notes h3 {
+  margin: 0 0 8px;
+}
+
+.analysis-notes ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #cbd5e1;
+}
