@@ -91,7 +91,7 @@ const DEFAULT_MACROS = {
 
 const baseControlForId = (id: StemId): StemControl => ({
   id,
-  gain: 0.9,
+  gain: 0.8,
 
   pan: 0,
   width: 1,
@@ -569,9 +569,9 @@ export function Remix() {
     if (!limiterRef.current || !analyserRef.current || !reverbConvolverRef.current || !reverbReturnRef.current) {
 
       const limiter = limiterRef.current ?? ctx.createDynamicsCompressor();
-      limiter.threshold.value = -6;
-      limiter.knee.value = 30;
-      limiter.ratio.value = 12;
+      limiter.threshold.value = -1; // Raised from -6 to -1 to avoid crushing
+      limiter.knee.value = 10;
+      limiter.ratio.value = 12; // Keep as safety catch
       limiter.attack.value = 0.003;
       limiter.release.value = 0.25;
 
