@@ -1320,7 +1320,43 @@ export function Remix() {
         </aside>
 
         <div className="analysis-notes">
-          <h3>Stem controls</h3>
+          <div className="tooltip-container">
+            <h3>Stem controls</h3>
+            <div className="tooltip-trigger">?</div>
+            <div className="tooltip-content">
+              <span className="tooltip-title">Control Guide</span>
+              <div className="tooltip-list">
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Vol</span>
+                  <span>Adjust stem gain level</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Pan</span>
+                  <span>Stereo position (L/R)</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Width</span>
+                  <span>Stereo image width</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Echo</span>
+                  <span>Digital delay amount</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Crush</span>
+                  <span>Bit reduction (Lo-Fi)</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Reverb</span>
+                  <span>Space/Ambience send</span>
+                </div>
+                <div className="tooltip-item">
+                  <span className="tooltip-term">Reverse</span>
+                  <span>Play backwards</span>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="stem-list">
             {controls.map((c) => (
               <div className="stem-row" key={c.id}>
