@@ -66,13 +66,7 @@ const makeDistortionCurve = (amount: number) => {
   return curve;
 };
 
-const cloneAudioBuffer = (ctx: AudioContext, buffer: AudioBuffer) => {
-  const newBuffer = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-    newBuffer.copyToChannel(buffer.getChannelData(channel), channel);
-  }
-  return newBuffer;
-};
+
 
 
 
