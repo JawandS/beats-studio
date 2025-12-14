@@ -51,6 +51,10 @@ export function Remix() {
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [controls, setControls] = useState<StemControl[]>(DEFAULT_CONTROLS);
   const [tempo, setTempo] = useState(1);
+  const [perEntryControls, setPerEntryControls] = useState<Record<
+    string,
+    { controls: StemControl[]; tempo: number }
+  >>({});
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'playing' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -83,7 +87,9 @@ export function Remix() {
             tempo?: number;
             controls?: StemControl[];
             entryId?: string | null;
+            perEntryControls?: Record<string, { controls: StemControl[]; tempo: number }>;
           };
+          if (parsed.perEntryControls) setPerEntryControls(parsed.perEntryControls);
           if (parsed.tempo) setTempo(parsed.tempo);
           if (parsed.controls) setControls(parsed.controls);
           if (parsed.entryId) setActiveEntryId(parsed.entryId);
@@ -155,10 +161,16 @@ export function Remix() {
       if (decoded.size === 0) throw new Error('No stems found in zip.');
       stemBuffersRef.current = decoded;
       setActiveEntryId(id);
+      const nextControls = perEntryControls[id]?.controls ?? controls;
+      const nextTempo = perEntryControls[id]?.tempo ?? tempo;
+      setControls(nextControls);
+      setTempo(nextTempo);
+      const updatedPerEntry = { ...perEntryControls, [id]: { controls: nextControls, tempo: nextTempo } };
+      setPerEntryControls(updatedPerEntry);
       try {
         localStorage.setItem(
           REMIX_STATE_KEY,
-          JSON.stringify({ tempo, controls, entryId: id })
+          JSON.stringify({ tempo: nextTempo, controls: nextControls, entryId: id, perEntryControls: updatedPerEntry })
         );
       } catch {
         /* ignore */
@@ -212,38 +224,67 @@ export function Remix() {
 
   const resetAll = () => {
     stop();
-    stemBuffersRef.current.clear();
-    setTempo(1);
-    setControls(DEFAULT_CONTROLS);
-    setActiveEntryId(null);
-    setError(null);
-    try {
-      localStorage.removeItem(REMIX_STATE_KEY);
-    } catch {
-      /* ignore */
+    const nextControls = DEFAULT_CONTROLS;
+    const nextTempo = 1;
+    setControls(nextControls);
+    setTempo(nextTempo);
+    if (activeEntryId) {
+      const updatedPerEntry = { ...perEntryControls, [activeEntryId]: { controls: nextControls, tempo: nextTempo } };
+      setPerEntryControls(updatedPerEntry);
+      try {
+        localStorage.setItem(
+          REMIX_STATE_KEY,
+          JSON.stringify({
+            tempo: nextTempo,
+            controls: nextControls,
+            entryId: activeEntryId,
+            perEntryControls: updatedPerEntry,
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        localStorage.setItem(
+          REMIX_STATE_KEY,
+          JSON.stringify({
+            tempo: nextTempo,
+            controls: nextControls,
+            entryId: activeEntryId,
+            perEntryControls,
+          })
+        );
+      } catch {
+        /* ignore */
+      }
     }
+    setError(null);
   };
 
   const updateControl = (id: StemId, key: keyof StemControl, value: number) => {
-    setControls((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const next = { ...c, [key]: value };
-        const node = sourcesRef.current.get(id);
-        if (node && audioCtxRef.current) {
-          if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-          if (key === 'pitch') {
-            node.source.playbackRate.setValueAtTime(
-              pitchToRate(value) * tempoRef.current,
-              audioCtxRef.current.currentTime
-            );
-          }
-        }
-        return next;
-      })
-    );
+    const nextControls = controls.map((c) => (c.id === id ? { ...c, [key]: value } : c));
+    setControls(nextControls);
+    const node = sourcesRef.current.get(id);
+    if (node && audioCtxRef.current) {
+      if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+      if (key === 'pitch') {
+        node.source.playbackRate.setValueAtTime(
+          pitchToRate(nextControls.find((c) => c.id === id)?.pitch ?? 0) * tempoRef.current,
+          audioCtxRef.current.currentTime
+        );
+      }
+    }
+
+    const updatedPerEntry = activeEntryId
+      ? { ...perEntryControls, [activeEntryId]: { controls: nextControls, tempo } }
+      : perEntryControls;
+    setPerEntryControls(updatedPerEntry);
     try {
-      localStorage.setItem(REMIX_STATE_KEY, JSON.stringify({ tempo, controls: controls.map((c) => (c.id === id ? { ...c, [key]: value } : c)), entryId: activeEntryId }));
+      localStorage.setItem(
+        REMIX_STATE_KEY,
+        JSON.stringify({ tempo, controls: nextControls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+      );
     } catch {
       /* ignore */
     }
@@ -329,23 +370,35 @@ export function Remix() {
                 max={1.5}
                 step={0.01}
                 value={tempo}
-            onChange={(e) => setTempo(Number(e.target.value))}
-              onMouseUp={() => {
-                try {
-                  localStorage.setItem(REMIX_STATE_KEY, JSON.stringify({ tempo, controls, entryId: activeEntryId }));
-                } catch {
-                  /* ignore */
-                }
-              }}
-              onTouchEnd={() => {
-                try {
-                  localStorage.setItem(REMIX_STATE_KEY, JSON.stringify({ tempo, controls, entryId: activeEntryId }));
-                } catch {
-                  /* ignore */
-                }
-              }}
-            />
-          </div>
+                onChange={(e) => setTempo(Number(e.target.value))}
+                onMouseUp={() => {
+                  try {
+                    const updatedPerEntry = activeEntryId
+                      ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
+                      : perEntryControls;
+                    localStorage.setItem(
+                      REMIX_STATE_KEY,
+                      JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+                    );
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                onTouchEnd={() => {
+                  try {
+                    const updatedPerEntry = activeEntryId
+                      ? { ...perEntryControls, [activeEntryId]: { controls, tempo } }
+                      : perEntryControls;
+                    localStorage.setItem(
+                      REMIX_STATE_KEY,
+                      JSON.stringify({ tempo, controls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+                    );
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              />
+            </div>
             <button
               type="button"
               className={`pill-button ${status === 'playing' ? 'secondary' : 'primary'}`}
@@ -353,6 +406,9 @@ export function Remix() {
               disabled={status === 'loading'}
             >
               {status === 'playing' ? 'Stop' : 'Play'}
+            </button>
+            <button type="button" className="pill-button secondary" onClick={resetAll}>
+              Reset
             </button>
             {status === 'playing' && (
               <div className="progress-wrap">
