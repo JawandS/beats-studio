@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backend": "server/.venv/bin/uvicorn server.main:app --reload --port 8000"
   },
   "dependencies": {
+    "concurrently": "^8.2.2",
+    "jszip": "^3.10.1",
     "konva": "^10.0.12",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
