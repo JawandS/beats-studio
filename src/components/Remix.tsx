@@ -12,6 +12,9 @@ type StemControl = {
 
   pan: number;
   width: number;
+  echo: number;
+  bitcrush: number;
+  reverse: boolean;
   reverbSend: number;
   macros: {
     vocalClean: boolean;
@@ -37,8 +40,45 @@ type StemNodes = {
   gain: GainNode;
   pan: StereoPannerNode;
   width: WidthStage;
+  echo: { input: GainNode; output: GainNode; delay: DelayNode; feedback: GainNode };
+  bitcrush: { node: WaveShaperNode; gain: GainNode };
   reverbSend: GainNode | null;
   filters: FilterStage;
+};
+
+const makeDistortionCurve = (amount: number) => {
+  const k = typeof amount === 'number' ? amount : 0;
+  const n_samples = 4096;
+  const curve = new Float32Array(n_samples);
+  if (k === 0) {
+    for (let i = 0; i < n_samples; i++) {
+      curve[i] = (i / n_samples) * 2 - 1;
+    }
+    return curve;
+  }
+  // Bitcrusher-like variable stepping
+  const steps = 1 + (1 - k) * 64; // range from ~65 down to 1 step
+  for (let i = 0; i < n_samples; i++) {
+    const x = (i / n_samples) * 2 - 1;
+    curve[i] = Math.round(x * steps) / steps;
+  }
+  return curve;
+};
+
+const cloneAudioBuffer = (ctx: AudioContext, buffer: AudioBuffer) => {
+  const newBuffer = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    newBuffer.copyToChannel(buffer.getChannelData(channel), channel);
+  }
+  return newBuffer;
+};
+
+const reverseBuffer = (ctx: AudioContext, buffer: AudioBuffer) => {
+  const newBuffer = cloneAudioBuffer(ctx, buffer);
+  for (let i = 0; i < newBuffer.numberOfChannels; i++) {
+    Array.prototype.reverse.call(newBuffer.getChannelData(i));
+  }
+  return newBuffer;
 };
 
 const STEM_FILES: Record<StemId, string> = {
@@ -62,6 +102,9 @@ const baseControlForId = (id: StemId): StemControl => ({
 
   pan: 0,
   width: 1,
+  echo: 0,
+  bitcrush: 0,
+  reverse: false,
   reverbSend: 0,
   macros: { ...DEFAULT_MACROS },
 });
@@ -85,15 +128,20 @@ type PerEntryState = Record<string, { controls: StemControl[]; tempo: number }>;
 
 const decodeStemsFromZip = async (zipBuffer: ArrayBuffer, ctx: AudioContext) => {
   const zip = await JSZip.loadAsync(zipBuffer);
-  const decoded = new Map<StemId, AudioBuffer>();
+  const decoded = new Map<StemId, { normal: AudioBuffer; reversed: AudioBuffer }>();
   let duration: number | null = null;
+  // Standard decodeAudioData is on AudioContext.
 
   for (const stemId of Object.keys(STEM_FILES) as StemId[]) {
     const file = zip.file(STEM_FILES[stemId]);
     if (!file) continue;
     const audioData = await file.async('arraybuffer');
     const buf = await ctx.decodeAudioData(audioData.slice(0));
-    decoded.set(stemId, buf);
+
+    // Create reversed buffer eagerly
+    const rev = reverseBuffer(ctx, buf);
+    decoded.set(stemId, { normal: buf, reversed: rev });
+
     if (duration === null) duration = buf.duration;
   }
   return { decoded, duration };
@@ -280,7 +328,7 @@ export function Remix() {
   const [isMixingDown, setIsMixingDown] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const stemBuffersRef = useRef<Map<StemId, AudioBuffer>>(new Map());
+  const stemBuffersRef = useRef<Map<StemId, { normal: AudioBuffer; reversed: AudioBuffer }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const stutterGainRef = useRef<GainNode | null>(null);
   const masterFiltersRef = useRef<{ hp: BiquadFilterNode; lp: BiquadFilterNode } | null>(null);
@@ -684,8 +732,9 @@ export function Remix() {
     if (!master) return;
 
     controls.forEach((control) => {
-      const buffer = stemBuffersRef.current.get(control.id);
-      if (!buffer) return;
+      const bufferSet = stemBuffersRef.current.get(control.id);
+      if (!bufferSet) return;
+      const buffer = control.reverse ? bufferSet.reversed : bufferSet.normal;
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;
@@ -701,18 +750,68 @@ export function Remix() {
       const reverbSend = reverbNode ? ctx.createGain() : null;
       if (reverbSend) reverbSend.gain.value = control.reverbSend;
 
-      source.connect(filters.hp).connect(filters.tone).connect(filters.lp).connect(gain).connect(pan).connect(widthStage.input);
+      // Bitcrush
+      const bitcrushGain = ctx.createGain();
+      bitcrushGain.gain.value = 1;
+      const bitcrushNode = ctx.createWaveShaper();
+      bitcrushNode.curve = makeDistortionCurve(control.bitcrush || 0);
+      bitcrushNode.oversample = 'none';
+
+      // Echo
+      const echoInput = ctx.createGain();
+      const echoDelay = ctx.createDelay();
+      echoDelay.delayTime.value = 0.33;
+      const echoFeedback = ctx.createGain();
+      echoFeedback.gain.value = 0.4;
+      const echoOutput = ctx.createGain();
+      echoOutput.gain.value = control.echo || 0;
+
+      echoInput.connect(echoDelay);
+      echoDelay.connect(echoOutput);
+      echoDelay.connect(echoFeedback);
+      echoFeedback.connect(echoDelay);
+
+      echoOutput.connect(master);
+
+      // Main Chain Connection
+      // source -> filters -> bitcrush -> gain -> pan -> width -> master
+      source.connect(filters.hp)
+        .connect(filters.tone)
+        .connect(filters.lp)
+        .connect(bitcrushNode)
+        .connect(bitcrushGain)
+        .connect(gain)
+        .connect(pan)
+        .connect(widthStage.input);
+
       widthStage.output.connect(master);
+
+      // Aux Sends
       if (reverbSend && reverbNode) {
         widthStage.output.connect(reverbSend);
         reverbSend.connect(reverbNode);
       }
-      applyMacroSettings(control, { source, gain, pan, width: widthStage, reverbSend, filters }, ctx);
+
+      widthStage.output.connect(echoInput);
+
+      // Store nodes
+      const nodesObj: StemNodes = {
+        source,
+        gain,
+        pan,
+        width: widthStage,
+        reverbSend,
+        filters,
+        echo: { input: echoInput, output: echoOutput, delay: echoDelay, feedback: echoFeedback },
+        bitcrush: { node: bitcrushNode, gain: bitcrushGain }
+      };
+
+      applyMacroSettings(control, nodesObj, ctx);
       source.start();
-      sourcesRef.current.set(control.id, { source, gain, pan, width: widthStage, reverbSend, filters });
+      sourcesRef.current.set(control.id, nodesObj);
     });
 
-    const first = stemBuffersRef.current.values().next().value as AudioBuffer;
+    const first = stemBuffersRef.current.values().next().value?.normal as AudioBuffer;
     if (first && first.duration > 0) {
       startTimeRef.current = ctx.currentTime;
       progressTimerRef.current = window.setInterval(() => {
@@ -776,18 +875,53 @@ export function Remix() {
     setError(null);
   };
 
-  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend', value: number) => {
+  const updateControl = (id: StemId, key: 'gain' | 'pan' | 'width' | 'reverbSend' | 'echo' | 'bitcrush' | 'reverse', value: number | boolean) => {
+    // If toggling reverse, we must restart playback for just this stem if playing
+    if (key === 'reverse' && status === 'playing') {
+      // Stop this stem and restart it with new buffer
+      const oldNodes = sourcesRef.current.get(id);
+      if (oldNodes) {
+        try { oldNodes.source.stop(); } catch { }
+        // We essentially need to re-run the creation logic for this stem.
+        // For simplicity in this naive engine, we just trigger a full play restart or 
+        // we can just wait for user to hit stop/play. 
+        // BUT user expects toggle. Let's do a trick: set state, then useEffect or just force a re-play of all (brute force but safe)
+        // or smarter: Just hot-swap? AudioBufferSourceNode buffer is immutable. 
+        // So we have to recreate the source.
+      }
+      // Let the state update trigger a re-render/re-effect? No, 'play' is imperative.
+      // We will do a Quick Restart of everything for sync stability.
+      setControls(prev => {
+        // Cast to any to satisfy TS for the dynamic key assignment
+        const next = prev.map(c => c.id === id ? { ...c, [key]: value as any } : c);
+        // We need to trigger play() with new controls. 
+        // But we can't call play() from inside setState updater.
+        // This is a limitation of this structure.
+        return next;
+      });
+      // Force restart
+      setTimeout(() => {
+        if (status === 'playing') play();
+      }, 0);
+      return;
+    }
+
     const nextControls = controls.map((c) => (c.id === id ? { ...c, [key]: value } : c));
     setControls(nextControls);
     const node = sourcesRef.current.get(id);
-    if (node && audioCtxRef.current) {
-      if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-      if (key === 'pan') node.pan.pan.setValueAtTime(value, audioCtxRef.current.currentTime);
-      if (key === 'width') node.width.setWidth(value);
-      if (key === 'reverbSend' && node.reverbSend) {
-        node.reverbSend.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
-      }
 
+    if (node && audioCtxRef.current) {
+      if (typeof value === 'number') {
+        if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+        if (key === 'pan') node.pan.pan.setValueAtTime(value, audioCtxRef.current.currentTime);
+        if (key === 'width') node.width.setWidth(value);
+        if (key === 'reverbSend' && node.reverbSend) {
+          node.reverbSend.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+        }
+        if (key === 'echo') node.echo.output.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+        if (key === 'bitcrush') node.bitcrush.node.curve = makeDistortionCurve(value);
+      }
+      // reverse handled above via restart
       applyMacroSettings(
         nextControls.find((c) => c.id === id) ?? normalizeControl(id),
         node,
@@ -839,7 +973,8 @@ export function Remix() {
       setError('Pick a stem set first.');
       return;
     }
-    const first = stemBuffersRef.current.values().next().value as AudioBuffer;
+    const firstWrapper = stemBuffersRef.current.values().next().value;
+    const first = firstWrapper ? firstWrapper.normal : undefined;
     if (!first) return;
     setIsMixingDown(true);
     setError(null);
@@ -857,8 +992,9 @@ export function Remix() {
       reverb.connect(reverbReturn).connect(master);
 
       controls.forEach((control) => {
-        const buffer = stemBuffersRef.current.get(control.id);
-        if (!buffer) return;
+        const bufferSet = stemBuffersRef.current.get(control.id);
+        if (!bufferSet) return;
+        const buffer = control.reverse ? bufferSet.reversed : bufferSet.normal;
         const source = offline.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
@@ -875,14 +1011,39 @@ export function Remix() {
         const reverbSend = control.reverbSend > 0 ? offline.createGain() : null;
         if (reverbSend) reverbSend.gain.value = control.reverbSend;
 
-        source.connect(filters.hp).connect(filters.tone).connect(filters.lp).connect(gain).connect(pan).connect(width.input);
+        // Effects for mixdown
+        const bitcrushGain = offline.createGain();
+        bitcrushGain.gain.value = 1;
+        const bitcrushNode = offline.createWaveShaper();
+        bitcrushNode.curve = makeDistortionCurve(control.bitcrush || 0);
+        bitcrushNode.oversample = 'none';
+
+        const echoInput = offline.createGain();
+        const echoDelay = offline.createDelay();
+        echoDelay.delayTime.value = 0.33;
+        const echoFeedback = offline.createGain();
+        echoFeedback.gain.value = 0.4;
+        const echoOutput = offline.createGain();
+        echoOutput.gain.value = control.echo || 0;
+
+        echoInput.connect(echoDelay);
+        echoDelay.connect(echoOutput);
+        echoDelay.connect(echoFeedback);
+        echoFeedback.connect(echoDelay);
+        echoOutput.connect(master);
+
+        // source -> filters -> bitcrush -> gain -> pan -> width -> master
+        source.connect(filters.hp).connect(filters.tone).connect(filters.lp).connect(bitcrushNode).connect(bitcrushGain).connect(gain).connect(pan).connect(width.input);
         width.output.connect(master);
+
+        width.output.connect(echoInput);
+
         if (reverbSend) {
           width.output.connect(reverbSend);
           reverbSend.connect(reverb);
         }
 
-        applyMacroSettings(control, { source, gain, pan, width, reverbSend, filters }, offline);
+        applyMacroSettings(control, { source, gain, pan, width, reverbSend, filters, echo: { input: echoInput, output: echoOutput, delay: echoDelay, feedback: echoFeedback }, bitcrush: { node: bitcrushNode, gain: bitcrushGain } }, offline);
         source.start();
       });
 
@@ -909,13 +1070,15 @@ export function Remix() {
     tempoRef.current = tempo;
     const ctx = audioCtxRef.current;
     if (status !== 'playing' || !ctx) return;
-    sourcesRef.current.forEach(({ source, pan, width, reverbSend }, id) => {
+    sourcesRef.current.forEach(({ source, pan, width, reverbSend, echo, bitcrush }, id) => {
       const control = controls.find((c) => c.id === id);
       if (!control) return;
       source.playbackRate.setValueAtTime(tempoRef.current, ctx.currentTime);
       pan.pan.setValueAtTime(control.pan, ctx.currentTime);
       width.setWidth(control.width);
       if (reverbSend) reverbSend.gain.setValueAtTime(control.reverbSend, ctx.currentTime);
+      if (echo) echo.output.gain.setValueAtTime(control.echo, ctx.currentTime);
+      if (bitcrush) bitcrush.node.curve = makeDistortionCurve(control.bitcrush);
     });
   }, [tempo, status, controls]);
 
@@ -1193,6 +1356,17 @@ export function Remix() {
                     />
                   </div>
                   <div className="control-block">
+                    <label>
+                      Reverse
+                      <input
+                        type="checkbox"
+                        checked={c.reverse}
+                        onChange={(e) => updateControl(c.id, 'reverse', e.target.checked)}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </label>
+                  </div>
+                  <div className="control-block">
                     <label>Width</label>
                     <input
                       type="range"
@@ -1201,6 +1375,28 @@ export function Remix() {
                       step={0.01}
                       value={c.width}
                       onChange={(e) => updateControl(c.id, 'width', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="control-block">
+                    <label>Echo</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={c.echo}
+                      onChange={(e) => updateControl(c.id, 'echo', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="control-block">
+                    <label>Crush</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={c.bitcrush}
+                      onChange={(e) => updateControl(c.id, 'bitcrush', Number(e.target.value))}
                     />
                   </div>
                   <div className="control-block">
