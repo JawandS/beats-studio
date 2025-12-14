@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { useEffect, useRef, useState } from 'react';
+import { clearStemsZip, loadStemsZip, saveStemsZip } from '../utils/stemStorage';
 import './SongAnalysis.css';
 
 type StemId = 'drums' | 'bass' | 'vocals' | 'other';
@@ -35,27 +36,6 @@ const formatSeconds = (seconds: number) => {
 };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-const STEM_STORAGE_KEY = 'beatstudio_stems_v1';
-const ZIP_STORAGE_KEY = 'beatstudio_stems_zip_v1';
-
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-};
-
-const base64ToArrayBuffer = (base64: string) => {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i += 1) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
 
 const decodeStemsFromZip = async (
   zipBuffer: ArrayBuffer,
@@ -113,41 +93,15 @@ export function SongAnalysis() {
   useEffect(() => {
     const restore = async () => {
       try {
-        const cachedZip = localStorage.getItem(ZIP_STORAGE_KEY);
-        const cachedLegacy = localStorage.getItem(STEM_STORAGE_KEY);
+        const cachedZip = await loadStemsZip();
+        if (!cachedZip) return;
         const ctx = await ensureContext(false);
-
-        if (cachedZip) {
-          const zipBuffer = base64ToArrayBuffer(cachedZip);
-          const { decoded, duration: dur } = await decodeStemsFromZip(zipBuffer, ctx);
-          if (decoded.size > 0) {
-            stemBuffersRef.current = decoded;
-            setDuration(dur);
-            setStatus('ready');
-            setError(null);
-            return;
-          }
-        }
-
-        if (cachedLegacy) {
-          const parsed: { stems?: Record<StemId, string> } = JSON.parse(cachedLegacy);
-          if (!parsed?.stems) return;
-          const decoded = new Map<StemId, AudioBuffer>();
-          let firstDuration: number | null = null;
-          await Promise.all(
-            (Object.keys(parsed.stems) as StemId[]).map(async (stemId) => {
-              const buf = base64ToArrayBuffer(parsed.stems![stemId]);
-              const audioBuf = await ctx.decodeAudioData(buf.slice(0));
-              decoded.set(stemId, audioBuf);
-              if (firstDuration === null) firstDuration = audioBuf.duration;
-            })
-          );
-          if (decoded.size > 0) {
-            stemBuffersRef.current = decoded;
-            setDuration(firstDuration);
-            setStatus('ready');
-            setError(null);
-          }
+        const { decoded, duration: dur } = await decodeStemsFromZip(cachedZip, ctx);
+        if (decoded.size > 0) {
+          stemBuffersRef.current = decoded;
+          setDuration(dur);
+          setStatus('ready');
+          setError(null);
         }
       } catch {
         // ignore cache errors
@@ -179,11 +133,10 @@ export function SongAnalysis() {
 
   const ensureBuffersAvailable = async (ctx: AudioContext) => {
     if (stemBuffersRef.current.size > 0) return;
-    const cachedZip = localStorage.getItem(ZIP_STORAGE_KEY);
+    const cachedZip = await loadStemsZip();
     if (!cachedZip) return;
     try {
-      const zipBuffer = base64ToArrayBuffer(cachedZip);
-      const { decoded } = await decodeStemsFromZip(zipBuffer, ctx);
+      const { decoded } = await decodeStemsFromZip(cachedZip, ctx);
       if (decoded.size > 0) {
         stemBuffersRef.current = decoded;
       }
@@ -204,6 +157,7 @@ export function SongAnalysis() {
     setError(null);
     stemBuffersRef.current.clear();
     setStems(DEFAULT_STEMS);
+    clearStemsZip().catch(() => {});
   };
 
   const startRecording = async () => {
@@ -297,12 +251,7 @@ export function SongAnalysis() {
       setDuration(dur ?? null);
       setStatus('ready');
 
-      try {
-        localStorage.setItem(ZIP_STORAGE_KEY, arrayBufferToBase64(zipBuffer));
-        localStorage.removeItem(STEM_STORAGE_KEY); // drop legacy cache to save space
-      } catch {
-        // ignore cache failures
-      }
+      await saveStemsZip(zipBuffer);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to separate audio.');
       setStatus('error');

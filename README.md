@@ -21,6 +21,11 @@ For non-dev/preview builds, set `VITE_API_URL` to your backend base (e.g., `http
 
 If you see `TorchCodec is required` from Demucs, ensure the backend venv has the heavy deps installed: `uv sync` (includes torch/torchaudio/torchcodec) or `pip install torch torchaudio torchcodec`.
 
+## Dev shortcuts
+
+- Run frontend + backend together: `npm run dev:all`
+- Stems are persisted in-browser via IndexedDB (no separate DB process required). They restore automatically after refresh.
+
 ## Features
 
 - 16-step sequencer (kick, snare, hat) rendered with react-konva
