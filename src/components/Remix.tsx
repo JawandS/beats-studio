@@ -271,61 +271,61 @@ const applyMacroSettings = (control: StemControl, nodes: StemNodes, ctx: BaseAud
   const { macros, id } = control;
   const { hp, tone, lp } = nodes.filters;
   const now = ctx.currentTime;
-  // Reset to neutral
-  hp.type = 'highpass';
-  hp.frequency.setTargetAtTime(20, now, 0.05);
-  hp.Q.setTargetAtTime(0.707, now, 0.05);
-  tone.type = 'peaking';
-  tone.frequency.setTargetAtTime(1000, now, 0.05);
-  tone.gain.setTargetAtTime(0, now, 0.05);
-  tone.Q.setTargetAtTime(0.707, now, 0.05);
-  lp.type = 'lowpass';
-  lp.frequency.setTargetAtTime(20000, now, 0.05);
-  lp.Q.setTargetAtTime(0.707, now, 0.05);
+  // Base settings (modified by macros)
+  let baseHp = 20;
+  let baseLp = 20000;
+  let baseToneFreq = 1000;
+  let baseToneGain = 0;
+  let baseToneQ = 0.707;
 
   if (macros.vocalClean && id === 'vocals') {
-    hp.frequency.setTargetAtTime(90, now, 0.05);
-    tone.frequency.setTargetAtTime(3200, now, 0.05);
-    tone.gain.setTargetAtTime(3, now, 0.05);
+    baseHp = 90;
+    baseToneFreq = 3200;
+    baseToneGain = 3;
   }
   if (macros.drumPunch && id === 'drums') {
-    hp.frequency.setTargetAtTime(45, now, 0.05);
-    tone.frequency.setTargetAtTime(6000, now, 0.05);
-    tone.gain.setTargetAtTime(2, now, 0.05);
+    baseHp = 45;
+    baseToneFreq = 110; // Tuned for punch (kick fundamental)
+    baseToneGain = 4;   // Stronger boost
   }
   if (macros.bassTighten && id === 'bass') {
-    hp.frequency.setTargetAtTime(35, now, 0.05);
-    lp.frequency.setTargetAtTime(5000, now, 0.05);
+    baseHp = 35;
+    baseLp = 5000;
   }
   if (macros.bassBoost && id === 'bass') {
-    tone.frequency.setTargetAtTime(80, now, 0.05);
-    tone.gain.setTargetAtTime(6, now, 0.05);
+    baseToneFreq = 80;
+    baseToneGain = 6;
   }
 
-  // DJ Filter Logic
+  // Apply Tone immediately since DJ Filter doesn't touch it
+  tone.type = 'peaking';
+  tone.frequency.setTargetAtTime(baseToneFreq, now, 0.05);
+  tone.gain.setTargetAtTime(baseToneGain, now, 0.05);
+  tone.Q.setTargetAtTime(0.707, now, 0.05);
+
+  // DJ Filter Logic (Relative to Base)
   // Filter range: -1 (LowPass) ... 0 (None) ... 1 (HighPass)
   const fVal = control.filter || 0;
   if (fVal < 0) {
-    // Low Pass Mode: Sweep cutoff from 20000 -> 200
-    // fVal goes -0.1 -> -1
+    // Low Pass Mode
     const t = Math.abs(fVal);
-    // Exponential-ish mapping for natural feel
     const cutoff = 20000 * Math.pow(0.01, t);
-    lp.frequency.setTargetAtTime(Math.max(20, cutoff), now, 0.1);
-    // Ensure HP is wide open
-    hp.frequency.setTargetAtTime(20, now, 0.1);
+    // Apply LP, respecting base limit
+    lp.frequency.setTargetAtTime(Math.min(baseLp, Math.max(20, cutoff)), now, 0.1);
+    // Keep HP at base
+    hp.frequency.setTargetAtTime(baseHp, now, 0.1);
   } else if (fVal > 0) {
-    // High Pass Mode: Sweep cutoff from 20 -> 2000
-    // fVal goes 0.1 -> 1
+    // High Pass Mode
     const t = fVal;
     const cutoff = 20 * Math.pow(100, t);
-    hp.frequency.setTargetAtTime(Math.min(20000, cutoff), now, 0.1);
-    // Ensure LP is wide open
-    lp.frequency.setTargetAtTime(20000, now, 0.1);
+    // Apply HP, respecting base limit
+    hp.frequency.setTargetAtTime(Math.max(baseHp, Math.min(20000, cutoff)), now, 0.1);
+    // Keep LP at base
+    lp.frequency.setTargetAtTime(baseLp, now, 0.1);
   } else {
-    // Neutral
-    lp.frequency.setTargetAtTime(20000, now, 0.1);
-    hp.frequency.setTargetAtTime(20, now, 0.1);
+    // Neutral - apply base
+    lp.frequency.setTargetAtTime(baseLp, now, 0.1);
+    hp.frequency.setTargetAtTime(baseHp, now, 0.1);
   }
 
   // Trance Gate Logic
