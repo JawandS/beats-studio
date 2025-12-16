@@ -667,3 +667,41 @@
   min-width: 45px;
   flex-shrink: 0;
 }
+
+.mute-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  transition: all 0.2s ease;
+}
+
+.mute-toggle-btn:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.stem-row.muted-row {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.stem-row.muted-row .stem-controls,
+.stem-row.muted-row .stem-name,
+.stem-row.muted-row .stem-sub {
+  opacity: 0.5;
+  filter: blur(2px);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.stem-row.muted-row .mute-toggle-btn {
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+  color: var(--color-text-secondary);
+}

@@ -9,6 +9,7 @@ type StemId = 'drums' | 'bass' | 'vocals' | 'other';
 type StemControl = {
   id: StemId;
   gain: number;
+  muted: boolean;
 
   pan: number;
   width: number;
@@ -80,6 +81,13 @@ const STEM_FILES: Record<StemId, string> = {
   other: 'other.wav',
 };
 
+const STEM_COLORS: Record<StemId, string> = {
+  drums: '#8B5CF6',
+  bass: '#EC4899',
+  vocals: '#A855F7',
+  other: '#C084FC',
+};
+
 const STEM_IDS: StemId[] = ['drums', 'bass', 'vocals', 'other'];
 
 const DEFAULT_MACROS = {
@@ -92,6 +100,7 @@ const DEFAULT_MACROS = {
 const baseControlForId = (id: StemId): StemControl => ({
   id,
   gain: 0.8,
+  muted: false,
 
   pan: 0,
   width: 1,
@@ -789,7 +798,7 @@ export function Remix() {
       source.loopEnd = buffer.duration;
       source.playbackRate.value = tempoRef.current;
       const gain = ctx.createGain();
-      gain.gain.value = control.gain;
+      gain.gain.value = control.muted ? 0 : control.gain;
       const pan = ctx.createStereoPanner();
       pan.pan.value = control.pan;
       const widthStage = createWidthStage(ctx, control.width);
@@ -947,7 +956,12 @@ export function Remix() {
     const node = sourcesRef.current.get(id);
 
     if (node && audioCtxRef.current) {
-      if (key === 'gain') node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+      if (key === 'gain') {
+        const isMuted = nextControls.find((c) => c.id === id)?.muted;
+        if (!isMuted) {
+          node.gain.gain.setValueAtTime(value, audioCtxRef.current.currentTime);
+        }
+      }
       if (key === 'pan') node.pan.pan.setValueAtTime(value, audioCtxRef.current.currentTime);
       if (key === 'width') node.width.setWidth(value);
       if (key === 'reverbSend' && node.reverbSend) {
@@ -962,6 +976,33 @@ export function Remix() {
         node,
         audioCtxRef.current
       );
+    }
+
+    const updatedPerEntry = activeEntryId
+      ? { ...perEntryControls, [activeEntryId]: { controls: nextControls, tempo } }
+      : perEntryControls;
+    setPerEntryControls(updatedPerEntry);
+    try {
+      localStorage.setItem(
+        REMIX_STATE_KEY,
+        JSON.stringify({ tempo, controls: nextControls, entryId: activeEntryId, perEntryControls: updatedPerEntry })
+      );
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const toggleMute = (id: StemId) => {
+    const nextControls = controls.map((c) =>
+      c.id === id ? { ...c, muted: !c.muted } : c
+    );
+    setControls(nextControls);
+    const node = sourcesRef.current.get(id);
+    if (node && audioCtxRef.current) {
+      const control = nextControls.find((c) => c.id === id);
+      if (control) {
+        node.gain.gain.setValueAtTime(control.muted ? 0 : control.gain, audioCtxRef.current.currentTime);
+      }
     }
 
     const updatedPerEntry = activeEntryId
@@ -1038,7 +1079,7 @@ export function Remix() {
         source.playbackRate.value = tempoRef.current;
 
         const gain = offline.createGain();
-        gain.gain.value = control.gain;
+        gain.gain.value = control.muted ? 0 : control.gain;
         const pan = offline.createStereoPanner();
         pan.pan.value = control.pan;
         const width = createWidthStage(offline, control.width);
@@ -1446,9 +1487,28 @@ export function Remix() {
           </div>
           <div className="stem-list">
             {controls.map((c) => (
-              <div className="stem-row" key={c.id}>
+              <div className={`stem-row ${c.muted ? 'muted-row' : ''}`} key={c.id}>
                 <div className="stem-meta">
-                  <span className="stem-chip" />
+                  <button
+                    type="button"
+                    className="mute-toggle-btn"
+                    onClick={() => toggleMute(c.id)}
+                    title={c.muted ? 'Unmute' : 'Mute'}
+                    style={{ color: !c.muted ? STEM_COLORS[c.id] : undefined }}
+                  >
+                    {c.muted ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <line x1="23" y1="9" x2="17" y2="15" />
+                        <line x1="17" y1="9" x2="23" y2="15" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      </svg>
+                    )}
+                  </button>
                   <div>
                     <div className="stem-name">{c.id}</div>
                     <div className="stem-sub">vol/pitch</div>
